@@ -4,6 +4,52 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.6.0] — 2026-05-18
+
+Dedicated `visitas` service account by default. Previously the
+container ran as a non-root user whose UID was assigned arbitrarily
+by `useradd -r` at image build time, which on a fresh host meant the
+bind-mounted `./data/` directory was owned by someone the container
+couldn&rsquo;t write as &mdash; `SQLITE_CANTOPEN` on first
+`docker compose up`. The fix pins the in-container user to UID/GID
+10001 and ships an installer that creates a matching host account,
+so bind-mount permissions line up by construction.
+
+### Added
+- **`install.sh`** &mdash; idempotent first-run installer. Creates a
+  `visitas` system user on the host (no login shell, no home dir) at
+  UID/GID 10001, generates `JWT_SECRET` if absent, chowns `./data/`
+  (mode 750) to the service account, locks `.env` to mode 600 owned
+  by the operator, then runs `docker compose up -d --build` as the
+  operator (not root, so the docker-group membership is honoured).
+  Refuses to run as root directly, as the `visitas` user, or when the
+  operator isn&rsquo;t in the `docker` group &mdash; with a clear
+  remediation message for each case. If UID/GID 10001 is already
+  taken on the host, falls back to whatever UID `useradd` assigns
+  and writes a numeric `VISITAS_UID` / `VISITAS_GID` override into
+  `.env`.
+
+### Changed
+- **`Dockerfile`** pins the in-container `visitas` user to UID/GID
+  10001 (previously: whatever `useradd -r` chose).
+- **`docker-compose.yml`** now runs the container as
+  `user: "${VISITAS_UID:-visitas}:${VISITAS_GID:-visitas}"`, which
+  resolves to UID 10001 inside the container by default and honours
+  the numeric override from `.env` when present.
+- **`.env.example`** documents `VISITAS_UID` / `VISITAS_GID` as
+  optional overrides and points operators at `install.sh`.
+
+### Operational notes
+- Re-running `install.sh` is safe: it reuses an existing `visitas`
+  user, only regenerates `JWT_SECRET` if it&rsquo;s missing or still
+  the placeholder, and re-chowns idempotently.
+- Existing installs (where `./data/` is owned by the operator or
+  root) can adopt the new model by running `sudo ./install.sh`
+  &mdash; the chown picks up existing SQLite files in place.
+- Backup cron jobs from the v1.5 README should now run as the
+  `visitas` user (e.g. `0 3 * * * visitas /usr/local/bin/visitas-backup.sh`)
+  since `./data/` is mode 750 and not world-readable.
+
 ## [1.5.0] — 2026-05-08
 
 GDPR right-to-be-forgotten + a documented backup story. Two of the

@@ -10,7 +10,7 @@ For a higher-level overview of what the project is, who it's for, and what it de
 
 ## Status
 
-**1.2.0 — visitor bans.** Admins and security can ban visitors (by visitor record, email, or name + optional company). Banned sign-ins are refused at the kiosk with a generic &ldquo;please see reception&rdquo; message, audited, and trigger an email + SMS to all on-duty admin/security so the floor team can intercept the visitor at the door. Bans beat invitations. See [CHANGELOG.md](CHANGELOG.md).
+**1.6.0 &mdash; dedicated service account by default.** A new `install.sh` creates a `visitas` system user on the host at UID/GID 10001 (matching the image), generates `JWT_SECRET`, chowns `./data/`, locks down `.env`, and brings the stack up &mdash; one command for a fresh install. The container no longer runs under whatever UID `useradd -r` happens to pick, so bind-mounted `./data/` is writable by construction. See [CHANGELOG.md](CHANGELOG.md).
 
 ## Contents
 
@@ -34,25 +34,48 @@ For a higher-level overview of what the project is, who it's for, and what it de
 - [Right-to-be-forgotten purge](#right-to-be-forgotten-purge)
 - [Backup and restore](#backup-and-restore)
 - [Active Directory](#active-directory)
-- [API reference (v1.5)](#api-reference-v13)
+- [API reference (v1.6)](#api-reference-v16)
 - [Development](#development)
 - [Testing](#testing)
 - [License](#license)
 
 ## Quick start (Docker)
 
+On a fresh host with Docker + the compose plugin already installed:
+
 ```bash
 git clone https://github.com/djsincla/visitas && cd visitas
-cp .env.example .env
-# Required: set JWT_SECRET to something long and random.
-#   JWT_SECRET=$(openssl rand -hex 64)
-
-docker compose up -d --build
-# Admin UI:    http://localhost:3000  →  log in admin / admin (forced password change)
-# Kiosk:       http://localhost:3000/kiosk  (placeholder in v0.1)
+sudo ./install.sh
+# Admin UI:    http://<this-host>:3000  →  log in admin / admin (forced password change)
+# Kiosk:       http://<this-host>:3000/kiosk
 ```
 
+`install.sh` is idempotent. It:
+
+- creates a `visitas` system account on the host (no login shell, no home dir) at UID/GID 10001, matching the image so bind-mount permissions line up,
+- copies `.env.example` to `.env` if missing and generates a strong `JWT_SECRET`,
+- chowns `./data/` to the service account (mode 750), and locks `.env` to mode 600 owned by the operator,
+- runs `docker compose up -d --build` *as the operator* (not root), so docker-group membership is honoured.
+
+It refuses to run as root directly, as the `visitas` user, or when the operator isn't in the `docker` group &mdash; with a remediation message for each.
+
 The container persists its SQLite database in `./data/` and reads JSON config from `./config/` (mounted read-only). Edit `config/visitor-form.json` before first deploy to customize what the kiosk asks visitors. After editing, run `docker compose restart visitas` to apply.
+
+### Manual install (without install.sh)
+
+If you'd rather wire things up by hand &mdash; for an unusual host layout, an existing system user, or a CI smoke test &mdash; the equivalent steps are:
+
+```bash
+sudo groupadd --system --gid 10001 visitas
+sudo useradd  --system --uid 10001 --gid 10001 \
+              --shell /usr/sbin/nologin --no-create-home visitas
+cp .env.example .env
+sed -i "s|^JWT_SECRET=.*|JWT_SECRET=$(openssl rand -hex 64)|" .env
+mkdir -p data && sudo chown -R 10001:10001 data && sudo chmod 750 data
+docker compose up -d --build
+```
+
+If UID/GID 10001 is already in use on your host, create `visitas` at a different UID/GID and set `VISITAS_UID` / `VISITAS_GID` in `.env` to those numeric values &mdash; `docker-compose.yml` honours the override.
 
 ## Quick start (local development)
 
@@ -422,7 +445,7 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 
 `POST /api/auth/change-password` refuses for `source='ad'` accounts (returns 400 with `"AD-authenticated users must change password in AD"`) — those accounts have no local password to change.
 
-## API reference (v1.5)
+## API reference (v1.6)
 
 `GET /api` returns a live endpoint index.
 

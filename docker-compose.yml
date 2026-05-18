@@ -4,6 +4,12 @@ services:
     image: visitas:latest
     container_name: visitas
     restart: unless-stopped
+    # Run as the visitas service account. The image pins this user to UID/GID
+    # 10001 and ./install.sh creates a matching host account, so bind-mounted
+    # ./data/ is writable without any UID juggling. VISITAS_UID/VISITAS_GID
+    # in .env override the names for the rare case where 10001 is taken on
+    # the host.
+    user: "${VISITAS_UID:-visitas}:${VISITAS_GID:-visitas}"
     ports:
       - "${VISITAS_PORT:-3000}:3000"
     environment:

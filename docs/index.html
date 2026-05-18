@@ -281,6 +281,20 @@
       <p class="muted">Shipped.</p>
     </article>
 
+    <article>
+      <h3>v1.6 — dedicated service account</h3>
+      <p>
+        New <code>install.sh</code> creates a <code>visitas</code>
+        system user on the host at UID/GID 10001 (matching the image),
+        generates <code>JWT_SECRET</code>, chowns <code>./data/</code>,
+        and runs <code>docker compose up</code> &mdash; one command
+        for a fresh install. The container no longer runs under
+        whatever UID <code>useradd -r</code> happens to pick at image
+        build time, so bind-mount permissions line up by construction.
+      </p>
+      <p class="muted">Shipped.</p>
+    </article>
+
   </div>
 </section>
 
@@ -301,12 +315,10 @@
 <section class="block">
   <h2>Trying it</h2>
   <pre><code>git clone https://github.com/djsincla/visitas.git &amp;&amp; cd visitas
-cp .env.example .env
-# set JWT_SECRET to something long and random
-docker compose up -d --build
-# open http://localhost:3000
+sudo ./install.sh
+# open http://&lt;this-host&gt;:3000
 # log in: admin / admin  (forced password change on first login)
-# kiosk surface lives at http://localhost:3000/kiosk</code></pre>
+# kiosk surface lives at http://&lt;this-host&gt;:3000/kiosk</code></pre>
   <p>
     SQLite database persists in <code>./data/</code>. Configuration in
     <code>./config/</code> (mounted read-only). Edit

@@ -26,8 +26,10 @@ ENV NODE_ENV=production \
     PORT=3000 \
     DATA_DIR=/app/data
 
-# Non-root user
-RUN groupadd -r visitas && useradd -r -g visitas -d /app visitas
+# Non-root user. UID/GID are pinned so a matching host account (created by
+# ./install.sh) can own bind-mounted ./data/ without any compose-side override.
+RUN groupadd --system --gid 10001 visitas \
+ && useradd --system --uid 10001 --gid 10001 --shell /usr/sbin/nologin --home-dir /app visitas
 
 COPY --from=server-build /app/node_modules ./node_modules
 COPY package.json ./
