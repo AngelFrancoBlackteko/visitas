@@ -4,6 +4,56 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.7.0] — 2026-05-18
+
+TLS at install time via Caddy, plus a real fix for the cookie `Secure`
+flag. Previously the session cookie was set `Secure` whenever
+`NODE_ENV=production` &mdash; which is always true in the Docker image
+&mdash; so any HTTP-only deploy looked like it worked until the browser
+silently dropped the cookie on the next request, surfacing as
+&ldquo;authentication required&rdquo; the moment the operator tried to
+change the admin password.
+
+### Added
+- **`./install.sh --domain &lt;hostname&gt;`** wires up a Caddy
+  reverse-proxy sidecar. `.local` / `.lan` / `.home` / `.internal` /
+  `.intranet` suffixes, IPv4 literals, and bare single-label
+  hostnames get a self-signed cert from Caddy&rsquo;s internal CA
+  (`tls internal`); anything else gets Let&rsquo;s Encrypt. Optional
+  **`--hostname &lt;host&gt; --domain &lt;domain&gt;`** form composes
+  the FQDN (e.g. `--hostname visitor-01 --domain home.local` &rarr;
+  `visitor-01.home.local`). Optional **`--email`** for ACME
+  registration. Without `--domain`, the installer is unchanged and
+  brings the stack up on plain HTTP :3000.
+- **Caddy service in `docker-compose.yml`** under `profiles: [tls]`,
+  activated by `COMPOSE_PROFILES=tls` (which `install.sh` writes to
+  `.env` when `--domain` is used). Binds host `:80` + `:443`,
+  reverse-proxies to `visitas:3000`, persists Caddy state
+  (internal CA, ACME account, issued certs) in named volumes so
+  reboots don&rsquo;t rotate the local CA.
+- **`caddy/Caddyfile`** in-repo as a placeholder; rewritten by
+  `install.sh` from a template based on the chosen TLS mode.
+
+### Fixed
+- **Cookie `Secure` flag** is now driven by `BASE_URL`
+  (`secure: baseUrl.startsWith('https://')`) instead of
+  `NODE_ENV === 'production'`. HTTP-only LAN installs (admin
+  password-change flow, post-login navigation) now work end-to-end;
+  HTTPS deploys still get the Secure flag automatically.
+- `docker-compose.yml` propagates `BASE_URL` to the visitas container
+  so the server sees the operator&rsquo;s stated public scheme.
+
+### Operational notes
+- After `install.sh --domain visitor-01.home.local` (or similar), make
+  sure that name resolves to the host on every device that talks to
+  the kiosk (DNS / mDNS / `/etc/hosts`). Caddy issues the cert for
+  whatever name it&rsquo;s asked to serve; it can&rsquo;t fix name
+  resolution.
+- The self-signed root CA is at
+  `/data/caddy/pki/authorities/local/root.crt` inside the `caddy`
+  container. Trust it once on each iPad / laptop via a configuration
+  profile to silence browser warnings.
+
 ## [1.6.0] — 2026-05-18
 
 Dedicated `visitas` service account by default. Previously the

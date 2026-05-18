@@ -295,6 +295,23 @@
       <p class="muted">Shipped.</p>
     </article>
 
+    <article>
+      <h3>v1.7 — TLS at install time</h3>
+      <p>
+        <code>./install.sh --domain visitor-01.home.local</code> (or
+        <code>--hostname visitor-01 --domain home.local</code>) now
+        wires up a Caddy reverse-proxy sidecar with a self-signed cert
+        from Caddy&rsquo;s local CA &mdash; no internet access needed.
+        Public hostnames get Let&rsquo;s Encrypt automatically. Also
+        fixes the &ldquo;authentication required&rdquo; error after
+        login on HTTP-only installs: the cookie <code>Secure</code>
+        flag is now driven by <code>BASE_URL</code> instead of
+        <code>NODE_ENV</code>, so HTTP-LAN and HTTPS-behind-Caddy both
+        work end-to-end.
+      </p>
+      <p class="muted">Shipped.</p>
+    </article>
+
   </div>
 </section>
 

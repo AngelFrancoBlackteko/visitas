@@ -1,0 +1,11 @@
+# This Caddyfile is rewritten by install.sh when you pass --domain.
+# Without --domain, the `caddy` profile in docker-compose.yml stays inactive
+# and this file is never read. If you bring up the tls profile manually
+# without running install.sh, you'll get a Caddy startup error pointing here.
+
+# install.sh --domain visitas.workshop.local   →  LAN-only with Caddy's internal CA
+# install.sh --domain visitas.example.com      →  public, Let's Encrypt auto
+
+:80 {
+    respond "visitas: run ./install.sh --domain <hostname> to configure TLS" 503
+}

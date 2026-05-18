@@ -10,7 +10,7 @@ For a higher-level overview of what the project is, who it's for, and what it de
 
 ## Status
 
-**1.6.0 &mdash; dedicated service account by default.** A new `install.sh` creates a `visitas` system user on the host at UID/GID 10001 (matching the image), generates `JWT_SECRET`, chowns `./data/`, locks down `.env`, and brings the stack up &mdash; one command for a fresh install. The container no longer runs under whatever UID `useradd -r` happens to pick, so bind-mounted `./data/` is writable by construction. See [CHANGELOG.md](CHANGELOG.md).
+**1.7.0 &mdash; TLS at install time.** `./install.sh --domain visitor-01.home.local` (or `--hostname visitor-01 --domain home.local`) now adds a Caddy reverse-proxy sidecar that issues a self-signed cert from its own local CA &mdash; no internet access needed. Public hostnames get Let&rsquo;s Encrypt automatically. Also fixes the &ldquo;authentication required&rdquo; error after login on HTTP-only installs (cookie `Secure` flag is now driven by `BASE_URL`, not `NODE_ENV`). See [CHANGELOG.md](CHANGELOG.md).
 
 ## Contents
 
@@ -34,7 +34,7 @@ For a higher-level overview of what the project is, who it's for, and what it de
 - [Right-to-be-forgotten purge](#right-to-be-forgotten-purge)
 - [Backup and restore](#backup-and-restore)
 - [Active Directory](#active-directory)
-- [API reference (v1.6)](#api-reference-v16)
+- [API reference (v1.7)](#api-reference-v17)
 - [Development](#development)
 - [Testing](#testing)
 - [License](#license)
@@ -45,9 +45,14 @@ On a fresh host with Docker + the compose plugin already installed:
 
 ```bash
 git clone https://github.com/djsincla/visitas && cd visitas
+
+# HTTP-only on :3000 (fine for "let me see the admin UI from this host" — the cookie
+# Secure flag is driven by BASE_URL, so plain HTTP works end-to-end on localhost):
 sudo ./install.sh
-# Admin UI:    http://<this-host>:3000  →  log in admin / admin (forced password change)
-# Kiosk:       http://<this-host>:3000/kiosk
+
+# Or set up TLS at install time (Caddy reverse-proxy + self-signed cert):
+sudo ./install.sh --hostname visitor-01 --domain home.local
+# Admin UI:  https://visitor-01.home.local   (admin / admin, forced password change)
 ```
 
 `install.sh` is idempotent. It:
@@ -55,9 +60,26 @@ sudo ./install.sh
 - creates a `visitas` system account on the host (no login shell, no home dir) at UID/GID 10001, matching the image so bind-mount permissions line up,
 - copies `.env.example` to `.env` if missing and generates a strong `JWT_SECRET`,
 - chowns `./data/` to the service account (mode 750), and locks `.env` to mode 600 owned by the operator,
+- if `--domain` is given, writes `caddy/Caddyfile`, sets `BASE_URL=https://<fqdn>` + `COMPOSE_PROFILES=tls` in `.env`, and brings up the `caddy` service alongside `visitas`,
 - runs `docker compose up -d --build` *as the operator* (not root), so docker-group membership is honoured.
 
 It refuses to run as root directly, as the `visitas` user, or when the operator isn't in the `docker` group &mdash; with a remediation message for each.
+
+**Picking a TLS mode.** `install.sh` picks one automatically from the resolved FQDN:
+
+| FQDN looks like                                | Caddy mode      | Internet needed? | What you get                                              |
+| ---------------------------------------------- | --------------- | ---------------- | --------------------------------------------------------- |
+| `*.local` / `*.lan` / `*.home` / `*.internal`  | `tls internal`  | No               | Self-signed cert from Caddy&rsquo;s local CA               |
+| bare hostname (`visitor-01`)                    | `tls internal`  | No               | Self-signed cert from Caddy&rsquo;s local CA               |
+| IPv4 literal (`192.168.1.42`)                  | `tls internal`  | No               | Self-signed cert from Caddy&rsquo;s local CA               |
+| public FQDN (`kiosk.example.com`)              | Let&rsquo;s Encrypt | Yes (`:80`/`:443`) | Real publicly-trusted cert. Pass `--email` for ACME notes |
+
+For `tls internal` (the common case), iPads and laptops will show a cert warning until they trust Caddy&rsquo;s local root CA. Export and install it with:
+
+```bash
+docker compose exec caddy cat /data/caddy/pki/authorities/local/root.crt > visitas-root-ca.crt
+# Then deploy visitas-root-ca.crt as a configuration profile on each device.
+```
 
 The container persists its SQLite database in `./data/` and reads JSON config from `./config/` (mounted read-only). Edit `config/visitor-form.json` before first deploy to customize what the kiosk asks visitors. After editing, run `docker compose restart visitas` to apply.
 
@@ -96,46 +118,47 @@ The Vite dev server proxies `/api/*` and `/uploads/*` to the server, so a single
 
 ## HTTPS for the kiosk (production)
 
-The kiosk's photo capture (v0.8+) uses the browser's `getUserMedia` API, which **requires an HTTPS origin** — browsers block camera access on plain `http://` for everything except `localhost`. If you don't enable photo capture you can run on `http://` indefinitely and skip this section, but the moment you flip the toggle in Settings → Photo capture you'll need TLS terminating in front of the container.
+The kiosk's photo capture (v0.8+) uses the browser's `getUserMedia` API, which **requires an HTTPS origin** &mdash; browsers block camera access on plain `http://` for everything except `localhost`. If you don't enable photo capture you can run on `http://` indefinitely, but the moment you flip the toggle in Settings &rarr; Photo capture you'll need TLS terminating in front of the container.
 
-Three pragmatic options for a small workshop:
+### Option A &mdash; `install.sh --domain` (recommended)
 
-### Option A — Caddy reverse proxy (recommended)
+The installer wires up Caddy alongside the visitas container under a `tls` profile. See the [Quick start (Docker)](#quick-start-docker) section above &mdash; that&rsquo;s the whole setup. Caddy generates a self-signed cert from its internal CA for LAN-style FQDNs and auto-provisions Let&rsquo;s Encrypt for public ones.
 
-[Caddy](https://caddyserver.com) terminates TLS automatically — Let's Encrypt for an internet-reachable hostname, or its own internal CA for a LAN-only deploy. One-line config:
+If you ran `install.sh` without `--domain` and want to add TLS later, re-run it with the flag &mdash; it&rsquo;s idempotent and your existing data is preserved.
 
-```caddyfile
-visitas.workshop.local {
-    reverse_proxy visitas:3000
-    tls internal
-}
-```
+### Option B &mdash; Bring your own cert
 
-Run Caddy alongside visitas in `docker-compose.yml`. iPads need the Caddy local CA root trusted once via an iOS configuration profile — Caddy serves it at `https://your-host/auto/`. After that, `https://visitas.workshop.local` works on every iPad on the LAN, including camera permission prompts.
-
-For an internet-reachable hostname, replace `tls internal` with nothing — Caddy auto-provisions a real Let's Encrypt cert.
-
-### Option B — mkcert for LAN-only
-
-If you don't want a reverse proxy, [mkcert](https://github.com/FiloSottile/mkcert) generates locally-trusted certs:
+If you already have a cert (mkcert, internal PKI, commercial CA, an existing acme.sh client somewhere else), drop the PEM files into `caddy/` and rewrite `caddy/Caddyfile` to reference them. Then set `COMPOSE_PROFILES=tls` + `BASE_URL=https://<your-host>` in `.env` (`install.sh` does this when given `--domain`, but you can do it by hand too) and `docker compose up -d`:
 
 ```bash
-mkcert -install                                  # adds the root CA to your trust store
-mkcert visitas.workshop.local 192.168.1.42       # generate cert + key for the LAN address
-# move .pem files into ./certs/, point your TLS-terminating proxy at them
+# 1. Drop the cert + key into ./caddy/
+cp /path/to/your-cert.pem ./caddy/cert.pem
+cp /path/to/your-key.pem  ./caddy/key.pem
+
+# 2. Replace ./caddy/Caddyfile with:
+cat > caddy/Caddyfile <<'EOF'
+visitas.workshop.local {
+    reverse_proxy visitas:3000
+    tls /etc/caddy/cert.pem /etc/caddy/key.pem
+}
+EOF
+
+# 3. Tell .env to bring up the tls profile
+echo 'COMPOSE_PROFILES=tls'                >> .env
+echo 'BASE_URL=https://visitas.workshop.local' >> .env
+
+docker compose up -d
 ```
 
-Each iPad needs the mkcert root CA installed once via a configuration profile (export with `mkcert -CAROOT` and email or AirDrop the `rootCA.pem` to the device). After install + trust, the cert is valid on iOS and the camera prompt works.
+The `caddy/` directory is mounted read-only at `/etc/caddy` inside the container, so any filename you reference in the Caddyfile via `/etc/caddy/foo.pem` resolves automatically.
 
-### Option C — A proper cert from a real CA
+For LAN-only workstation-generated certs, [mkcert](https://github.com/FiloSottile/mkcert) is the easiest source &mdash; `mkcert -install` once, then `mkcert visitas.workshop.local 192.168.1.42` produces the two PEM files. Each iPad still needs the mkcert root CA installed via a configuration profile (export with `mkcert -CAROOT`).
 
-If the workshop hostname is reachable from the public internet (e.g. `visitas.example.com`), use Let's Encrypt directly via [acme.sh](https://github.com/acmesh-official/acme.sh) or your existing infra. Drop the cert + key into the same TLS-terminating proxy as A or B.
+### Option C &mdash; A proper cert from a real CA
 
-### Wiring it into docker-compose
+If the workshop hostname is reachable from the public internet (e.g. `visitas.example.com`), `install.sh --domain visitas.example.com` does this automatically via Let&rsquo;s Encrypt. Pass `--email` to register an ACME account that gets expiry-warning emails.
 
-`docker-compose.yml` ships with the visitas container exposed on `:3000` directly. For production with TLS, run a Caddy / nginx / Traefik service alongside that points at the visitas container's internal port and binds `:443` on the host. The visitas service itself doesn't terminate TLS — it serves plain HTTP behind the proxy. Set `BASE_URL=https://your-host` in `.env` so links in invitation emails use the right scheme.
-
-> **MDM note**: if your iPads are managed (via Apple Business Manager / Jamf / similar), push the root CA as a configuration profile rather than relying on visitors trusting it manually — same flow as for any internal service.
+> **MDM note**: if your iPads are managed (via Apple Business Manager / Jamf / similar), push the root CA as a configuration profile rather than relying on visitors trusting it manually &mdash; same flow as for any internal service.
 
 ## Default credentials
 
@@ -445,7 +468,7 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 
 `POST /api/auth/change-password` refuses for `source='ad'` accounts (returns 400 with `"AD-authenticated users must change password in AD"`) — those accounts have no local password to change.
 
-## API reference (v1.6)
+## API reference (v1.7)
 
 `GET /api` returns a live endpoint index.
 

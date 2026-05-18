@@ -16,6 +16,10 @@ services:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 64)}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Public scheme + host as the kiosk sees it. install.sh sets this to
+      # https://<domain> when --domain is used; the server drives the cookie
+      # Secure flag off this value.
+      BASE_URL: ${BASE_URL:-}
       AD_BIND_PASSWORD: ${AD_BIND_PASSWORD:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMS_AUTH_TOKEN: ${SMS_AUTH_TOKEN:-}
@@ -30,3 +34,31 @@ services:
       timeout: 5s
       retries: 3
       start_period: 10s
+
+  # Optional TLS-terminating reverse proxy. Activated by the "tls" profile,
+  # which install.sh enables via COMPOSE_PROFILES=tls in .env when you pass
+  # --domain. Without a domain this service stays inactive and visitas keeps
+  # serving plain HTTP on :3000.
+  caddy:
+    image: caddy:2-alpine
+    container_name: visitas-caddy
+    restart: unless-stopped
+    profiles: ["tls"]
+    depends_on:
+      - visitas
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      # Mount the whole caddy/ directory so operators bringing their own cert
+      # can drop cert.pem + key.pem alongside the Caddyfile and reference them
+      # in the Caddyfile via /etc/caddy/<filename>.
+      - ./caddy:/etc/caddy:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  # Caddy's internal CA + Let's Encrypt account/cert state. Losing this means
+  # devices that trusted the previous internal CA need to re-trust.
+  caddy_data:
+  caddy_config:
