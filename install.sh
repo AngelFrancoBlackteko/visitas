@@ -215,8 +215,19 @@ EOF
   upsert_env BASE_URL          "https://${FQDN}"
   upsert_env COMPOSE_PROFILES  "tls"
 else
-  printf "No --domain given — running HTTP-only on :3000.\n"
-  # If a previous install set COMPOSE_PROFILES/BASE_URL, leave them alone.
+  # Re-running without --domain means the operator wants HTTP-only. If a
+  # previous --domain run left BASE_URL=https://... and COMPOSE_PROFILES=tls
+  # in .env, leaving them would re-introduce the silent-cookie-drop bug
+  # 1.7.0 fixed (Secure flag stays on but the request comes in over HTTP).
+  prev_base="$(grep '^BASE_URL=' .env | cut -d= -f2- || true)"
+  prev_profiles="$(grep '^COMPOSE_PROFILES=' .env | cut -d= -f2- || true)"
+  if [[ -n "$prev_base" || -n "$prev_profiles" ]]; then
+    printf "Reverting to HTTP-only on :3000 (clearing BASE_URL and COMPOSE_PROFILES from previous TLS install).\n"
+    upsert_env BASE_URL ""
+    upsert_env COMPOSE_PROFILES ""
+  else
+    printf "No --domain given — running HTTP-only on :3000.\n"
+  fi
 fi
 
 # .env holds JWT_SECRET / AD bind password / SMTP creds. Keep it readable
