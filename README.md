@@ -103,7 +103,7 @@ If UID/GID 10001 is already in use on your host, create `visitas` at a different
 
 ```bash
 npm install
-cp server/.env.example server/.env       # set JWT_SECRET
+cp server/.env.example server/.env       # then set JWT_SECRET=$(openssl rand -hex 64); the server won't start without a strong one
 npm run migrate                          # creates data/visitas.sqlite, bootstraps admin/admin
 npm run dev                              # API on :3000, web on :5173 with hot reload
 ```
@@ -227,7 +227,7 @@ visitas/
 
 | Where | What | Lifetime |
 | --- | --- | --- |
-| `.env` (Docker) / `server/.env` (local) | Secrets: `JWT_SECRET`, `AD_BIND_PASSWORD`, `SMTP_PASSWORD`, `SMS_AUTH_TOKEN` | Read on every server start |
+| `.env` (Docker) / `server/.env` (local) | Secrets: `JWT_SECRET` (min 32 chars, required), `AD_BIND_PASSWORD`, `SMTP_PASSWORD`, `SMS_AUTH_TOKEN`; `TRUST_PROXY=1` behind Caddy | Read on every server start |
 | `config/visitor-form.json` | Kiosk field schema (sample only in v0.1; consumed by v0.2's kiosk) | Seeded into DB on first migration once v0.2 lands; admin UI authoritative thereafter |
 | `data/visitas.sqlite` | Users, settings, audit log | Authoritative |
 | `data/uploads/` | Admin-uploaded files (e.g. logo) | Authoritative |
@@ -543,7 +543,7 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 - `DELETE /:kind` (admin) — deactivate the active document of that kind.
 
 ### Visitors — `/api/visitors`
-- `POST /lookup` — **public** — `{email}` → returning-visitor pre-fill payload (name / company / phone / `ndaCacheFresh` / `ndaCacheVersion`). 404 on unknown email.
+- `POST /lookup` — **public**, rate-limited (20/min/IP) — `{email}` → returning-visitor payload (name / `ndaCacheFresh` / `ndaCacheVersion`). No contact data is returned. 404 on unknown email.
 - `GET /` (admin) — list every visitor with derived visit count + NDA cache state.
 - `DELETE /:id` (admin) — GDPR right-to-be-forgotten purge. Optional `{ reason }` body for audit. Returns counts: `{ visitorId, visitsScrubbed, acksScrubbed, invitationsScrubbed, notificationsLogScrubbed, bansUnlinked, photosDeleted, signaturesDeleted }`. Idempotent: 404 on already-purged.
 

@@ -71,6 +71,7 @@ function parseTrustProxy(raw) {
 // Values that have shipped in examples/docs and must never sign real sessions.
 const KNOWN_WEAK_SECRETS = new Set([
   'change-me-please',
+  'change-me-in-production-please',
   'change-me',
   'changeme',
   'secret',
