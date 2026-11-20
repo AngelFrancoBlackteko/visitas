@@ -29,6 +29,15 @@ the dependency tree.
 - **New `TRUST_PROXY` setting** (Express `trust proxy`). `install.sh`
   sets it to `1` with `--domain` (Caddy in front) so rate limits key on
   the real client IP instead of Caddy's; it stays off for direct HTTP.
+- **App port bound to localhost behind Caddy.** New `VISITAS_BIND`
+  (compose publishes `${VISITAS_BIND:-0.0.0.0}:3000`); `install.sh`
+  sets `127.0.0.1` with `--domain`. Otherwise, with `TRUST_PROXY=1`, a
+  LAN client could hit :3000 directly with a forged `X-Forwarded-For`
+  and dodge every rate limit.
+- All limiters (login, sign-out, lookup, visit creation) share one
+  helper; a new test re-enables them and proves each is wired to its
+  real route and ignores spoofed `X-Forwarded-For` while `TRUST_PROXY`
+  is off.
 
 ### Changed
 - Dependencies updated; `npm audit` reports 0 vulnerabilities (was 30,

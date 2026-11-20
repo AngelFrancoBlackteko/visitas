@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import rateLimit from 'express-rate-limit';
 import { requireAuth, requireRole, blockIfPasswordChangeRequired } from '../middleware/auth.js';
 import { COOKIE_NAME, verifyToken } from '../auth/jwt.js';
 import { db } from '../db/index.js';
@@ -28,13 +27,9 @@ const BADGE_CSP = [
 
 // Rate limit on the public sign-out path. Skipped under NODE_ENV=test so the
 // existing suite (which fires sign-outs back to back) isn't perturbed.
-const signOutLimiter = rateLimit({
-  windowMs: 60 * 1000,
+const signOutLimiter = publicLimiter({
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'too many sign-out requests, slow down' },
-  skip: () => process.env.NODE_ENV === 'test',
+  message: 'too many sign-out requests, slow down',
 });
 
 const ackSchema = z.object({
