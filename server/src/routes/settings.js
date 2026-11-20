@@ -6,7 +6,7 @@ import { resolve, extname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { config } from '../config.js';
 import { requireAuth, requireRole, blockIfPasswordChangeRequired } from '../middleware/auth.js';
-import { getBranding, setSetting, clearSetting, getSetting, getSignoutMode, SIGNOUT_MODES } from '../services/settings.js';
+import { getBranding, setSetting, clearSetting, getSetting, getSignoutMode, SIGNOUT_MODES, getPrintBadge } from '../services/settings.js';
 import { SUPPORTED_LANGUAGES, LANGUAGE_SETTING_KEY, getLanguage, t } from '../i18n/index.js';
 
 const router = Router();
@@ -48,6 +48,12 @@ router.get('/kiosk-signout', (_req, res) => {
   res.json({ mode: getSignoutMode() });
 });
 
+// Badge printing is PUBLIC to read: the kiosk decides after each sign-in
+// whether to open the printable badge (false = paperless kiosk).
+router.get('/kiosk-badge', (_req, res) => {
+  res.json({ print: getPrintBadge() });
+});
+
 // Authed endpoints below.
 router.use(requireAuth, blockIfPasswordChangeRequired);
 
@@ -56,8 +62,26 @@ const signoutModeSchema = z.object({ mode: z.enum(SIGNOUT_MODES) }).strict();
 router.put('/kiosk-signout', requireRole('admin'), (req, res) => {
   const parse = signoutModeSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: 'invalid request', details: parse.error.flatten() });
+  // Badge-QR sign-out needs a printed badge to scan. A paperless kiosk has
+  // no QR, so visitors would have no way to sign themselves out.
+  if (parse.data.mode === 'badge' && !getPrintBadge()) {
+    return res.status(409).json({ error: 'badge QR sign-out needs printed badges; turn badge printing on first', code: 'PRINT_BADGE_OFF' });
+  }
   setSetting('kiosk.signout_mode', parse.data.mode);
   res.json({ mode: parse.data.mode });
+});
+
+const printBadgeSchema = z.object({ print: z.boolean() }).strict();
+
+// Turning printing off also switches sign-out to the name list, because
+// without a badge there is no QR to scan. Turning it back on leaves the
+// sign-out mode alone; the admin picks it again explicitly.
+router.put('/kiosk-badge', requireRole('admin'), (req, res) => {
+  const parse = printBadgeSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: 'invalid request', details: parse.error.flatten() });
+  setSetting('kiosk.print_badge', parse.data.print);
+  if (!parse.data.print) setSetting('kiosk.signout_mode', 'list');
+  res.json({ print: parse.data.print, signoutMode: getSignoutMode() });
 });
 
 // --- Interface language (admin only) ---------------------------------------

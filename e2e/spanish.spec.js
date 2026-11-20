@@ -92,6 +92,50 @@ test('es: visitor signs in, gets a Spanish badge, and signs out', async ({ page,
   await expect(page.getByRole('heading', { name: 'Hasta luego, Luis.' })).toBeVisible();
 });
 
+test('es: paperless kiosk prints nothing and the visitor signs out by name', async ({ page }) => {
+  const put = await adminCtx.request.put('/api/settings/kiosk-badge', { data: { print: false } });
+  expect(put.ok()).toBe(true);
+  try {
+    await page.addInitScript(() => {
+      window.__opened = [];
+      window.open = (url) => { window.__opened.push(String(url)); return null; };
+    });
+    await page.goto('/kiosk/default');
+    await page.getByLabel(/Su nombre/).fill('Sofía Sinpapel');
+    await page.getByPlaceholder(/Escriba un nombre…/).fill('Jane');
+    await page.getByRole('button', { name: 'Jane Host' }).click();
+    await page.getByLabel(/Motivo de la visita/).selectOption('Reunión');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    await page.locator('.doc-body').first().evaluate(el => { el.scrollTop = el.scrollHeight; });
+    await page.getByRole('button', { name: /Lo he leído/ }).click();
+    await page.locator('.doc-body').first().evaluate(el => { el.scrollTop = el.scrollHeight; });
+    const pad = page.locator('canvas.signature-pad');
+    await expect(pad).not.toHaveClass(/disabled/);
+    const box = await pad.boundingBox();
+    await page.mouse.move(box.x + 20, box.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + 100, { steps: 10 });
+    await page.mouse.up();
+    await page.getByRole('button', { name: 'Acepto y firmo' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Gracias, Sofía.' })).toBeVisible();
+    await expect(page.getByText(/Ya avisamos a/)).toBeVisible();
+    await expect(page.getByTestId('paperless-signout-hint')).toHaveText(/registre su salida en este kiosco/);
+    await expect(page.getByRole('link', { name: 'Reimprimir gafete' })).toHaveCount(0);
+    expect(await page.evaluate(() => window.__opened)).toEqual([]);
+
+    // Sign-out switched to the name list automatically.
+    await page.goto('/kiosk/signout');
+    await expect(page.getByText('Toque su nombre para registrar su salida.')).toBeVisible();
+    await page.getByRole('button', { name: /Sofía Sinpapel/ }).click();
+    await expect(page.getByRole('heading', { name: 'Hasta luego, Sofía.' })).toBeVisible();
+  } finally {
+    await adminCtx.request.put('/api/settings/kiosk-badge', { data: { print: true } });
+    await adminCtx.request.put('/api/settings/kiosk-signout', { data: { mode: 'badge' } });
+  }
+});
+
 test('es: login screen is in Spanish', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();

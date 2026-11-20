@@ -536,6 +536,10 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 - `GET /` — `{ public }` (default true).
 - `PUT /` (admin) — `{ public: bool }`. When `false`, `GET /api/visits/active` requires admin or security auth.
 
+### Printed badge — `/api/settings/kiosk-badge`
+- `GET /` (public) — `{ print }` (default true). The kiosk reads it after each sign-in.
+- `PUT /` (admin) — `{ print: bool }`. `false` = paperless kiosk: no badge window opens and sign-out switches to the name list (there is no QR to scan). The host is still notified as usual.
+
 ### Notifications log — `/api/notifications-log` (admin)
 - `GET /` — recent dispatch attempts. Optional `?status=pending|sent|failed`, `?event=signed_in`, `?limit=` (default 100, max 500). Each entry: `{ id, kind, event, recipient, subject, status, error, createdAt, sentAt }`.
 

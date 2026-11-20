@@ -4,6 +4,24 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.11.0] — 2026-11-20
+
+Paperless kiosk: sign in without printing a badge.
+
+### Added
+- **Printed badge setting** (Settings → Printed badge): print a badge at
+  every sign-in (default, unchanged behaviour) or go paperless. Public
+  `GET /api/settings/kiosk-badge` (`{ print }`), admin-only
+  `PUT /api/settings/kiosk-badge`.
+- Paperless thank-you screen tells the visitor to sign out at the kiosk by
+  tapping their name, and shows no reprint link.
+
+### Changed
+- Turning printing off also switches kiosk sign-out to the name list,
+  because there is no badge QR to scan. While printing is off,
+  `PUT /api/settings/kiosk-signout` refuses `badge` with `409
+  PRINT_BADGE_OFF`. Host notifications are unchanged.
+
 ## [1.10.0] — 2026-11-20
 
 Spanish (Mexico) interface, with English still available.
