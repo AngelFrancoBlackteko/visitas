@@ -214,6 +214,8 @@ EOF
 
   upsert_env BASE_URL          "https://${FQDN}"
   upsert_env COMPOSE_PROFILES  "tls"
+  upsert_env TRUST_PROXY       "1"
+  upsert_env VISITAS_BIND      "127.0.0.1"
 else
   # Re-running without --domain means the operator wants HTTP-only. If a
   # previous --domain run left BASE_URL=https://... and COMPOSE_PROFILES=tls
@@ -225,6 +227,8 @@ else
     printf "Reverting to HTTP-only on :3000 (clearing BASE_URL and COMPOSE_PROFILES from previous TLS install).\n"
     upsert_env BASE_URL ""
     upsert_env COMPOSE_PROFILES ""
+    upsert_env TRUST_PROXY ""
+    upsert_env VISITAS_BIND ""
   else
     printf "No --domain given — running HTTP-only on :3000.\n"
   fi

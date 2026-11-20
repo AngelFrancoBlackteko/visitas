@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { lookupForKiosk, listForAdmin } from '../services/visitors.js';
 import { purgeVisitor } from '../services/visitorPurge.js';
 import { requireAuth, requireRole, blockIfPasswordChangeRequired } from '../middleware/auth.js';
+import { publicLimiter } from '../middleware/rateLimits.js';
 
 const router = Router();
 
@@ -10,8 +11,16 @@ const lookupSchema = z.object({
   email: z.string().email(),
 });
 
-// Public — kiosk uses this to pre-fill returning visitors. Trust-the-LAN.
-router.post('/lookup', (req, res) => {
+// Public — kiosk uses this to greet returning visitors and skip a fresh NDA.
+// Rate-limited and returns no contact data (phone/email/company): anyone on
+// the network can call it, so it must not work as a "who visits here"
+// directory keyed by email.
+const lookupLimiter = publicLimiter({
+  max: 20,
+  message: 'too many lookups, slow down',
+});
+
+router.post('/lookup', lookupLimiter, (req, res) => {
   const parse = lookupSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: 'invalid request' });
   const v = lookupForKiosk(parse.data.email);

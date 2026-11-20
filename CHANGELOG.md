@@ -4,6 +4,54 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.8.0] — 2026-11-20
+
+Security hardening of the public kiosk surface, the session secret, and
+the dependency tree.
+
+### Security
+- **`POST /api/visitors/lookup` no longer returns contact data.** It now
+  returns only the visitor's name plus NDA-cache state. Previously anyone
+  on the network could submit an email and get back name, company, phone
+  and email. The kiosk pre-fills only the name for returning visitors.
+- **Per-IP rate limits on public kiosk endpoints:** visitor lookup
+  (20/min) and visit creation (30/min, since each sign-in can trigger
+  host email/SMS). Public sign-out keeps its existing 10/min limit.
+- **Server refuses to start with a weak `JWT_SECRET`** (empty, the old
+  `change-me-please` example value, or under 32 characters).
+  `.env.example` now ships it blank.
+- **Security headers via `helmet`:** CSP (no third-party origins, no
+  `upgrade-insecure-requests` so HTTP-only LAN installs keep working),
+  `nosniff`, frame protection, `X-Powered-By` removed, HSTS only when
+  `BASE_URL` is https. The printable badge gets its own tight CSP.
+- **Uploaded logos are served sandboxed** (`CSP: sandbox`), so an SVG
+  logo opened directly can't run script on the app's origin.
+- **New `TRUST_PROXY` setting** (Express `trust proxy`). `install.sh`
+  sets it to `1` with `--domain` (Caddy in front) so rate limits key on
+  the real client IP instead of Caddy's; it stays off for direct HTTP.
+- **App port bound to localhost behind Caddy.** New `VISITAS_BIND`
+  (compose publishes `${VISITAS_BIND:-0.0.0.0}:3000`); `install.sh`
+  sets `127.0.0.1` with `--domain`. Otherwise, with `TRUST_PROXY=1`, a
+  LAN client could hit :3000 directly with a forged `X-Forwarded-For`
+  and dodge every rate limit.
+- All limiters (login, sign-out, lookup, visit creation) share one
+  helper; a new test re-enables them and proves each is wired to its
+  real route and ignores spoofed `X-Forwarded-For` while `TRUST_PROXY`
+  is off.
+
+### Changed
+- Dependencies updated; `npm audit` reports 0 vulnerabilities (was 30,
+  6 critical). Notable bumps: bcrypt 6, nodemailer 10, zod 4, helmet 8
+  (new), react-router-dom 7, vite 8, vitest 5. `qs` pinned to ^6.17.1
+  via `overrides`.
+- Dockerfile installs with `npm ci` from `package-lock.json` instead of
+  `npm install` without a lockfile, so image builds are reproducible.
+
+### Known limitation
+- Kiosk self sign-out still works by tapping a name on the public active
+  list, so anyone on the network can sign out any visitor (rate-limited).
+  Fixing that properly needs a UX change (e.g. sign-out by badge QR).
+
 ## [1.7.0] — 2026-05-18
 
 TLS at install time via Caddy, plus a real fix for the cookie `Secure`

@@ -1,9 +1,16 @@
-import { config } from './config.js';
+import { config, assertStrongJwtSecret } from './config.js';
 import { logger } from './logger.js';
 import { runMigrations, bootstrapAdmin, seedDocumentsFromConfig } from './db/migrate.js';
 import { createApp } from './app.js';
 import { startPhotoRetentionSweep } from './services/photo.js';
 import { assertAdBindCredentials } from './auth/ad.js';
+
+try {
+  assertStrongJwtSecret();
+} catch (err) {
+  logger.fatal({ err: err.message }, 'JWT secret check failed');
+  process.exit(1);
+}
 
 try {
   assertAdBindCredentials();

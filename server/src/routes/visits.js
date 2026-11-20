@@ -1,6 +1,5 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import rateLimit from 'express-rate-limit';
 import { requireAuth, requireRole, blockIfPasswordChangeRequired } from '../middleware/auth.js';
 import { COOKIE_NAME, verifyToken } from '../auth/jwt.js';
 import { db } from '../db/index.js';
@@ -11,18 +10,26 @@ import {
 import { renderBadge } from '../services/badge.js';
 import { photoFileFor } from '../services/photo.js';
 import { getSetting } from '../services/settings.js';
+import { publicLimiter } from '../middleware/rateLimits.js';
 
 const router = Router();
 
+const BADGE_CSP = [
+  "default-src 'none'",
+  "img-src 'self' data:",
+  "style-src 'unsafe-inline'",
+  "script-src 'unsafe-inline'",
+  "script-src-attr 'unsafe-inline'",
+  "base-uri 'none'",
+  "form-action 'none'",
+  "frame-ancestors 'self'",
+].join('; ');
+
 // Rate limit on the public sign-out path. Skipped under NODE_ENV=test so the
 // existing suite (which fires sign-outs back to back) isn't perturbed.
-const signOutLimiter = rateLimit({
-  windowMs: 60 * 1000,
+const signOutLimiter = publicLimiter({
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'too many sign-out requests, slow down' },
-  skip: () => process.env.NODE_ENV === 'test',
+  message: 'too many sign-out requests, slow down',
 });
 
 const ackSchema = z.object({
@@ -48,8 +55,15 @@ const createSchema = z.object({
   { message: 'hostUserId or inviteToken required' },
 );
 
-// Public: the kiosk creates visits without auth. Trust-the-LAN.
-router.post('/', (req, res, next) => {
+// Public: the kiosk creates visits without auth. Rate-limited per IP because
+// every sign-in can fan out to host email/SMS (SMS costs money), so an
+// unthrottled script could flood hosts and run up the provider bill.
+const createLimiter = publicLimiter({
+  max: 30,
+  message: 'too many sign-ins from this device, slow down',
+});
+
+router.post('/', createLimiter, (req, res, next) => {
   const parse = createSchema.safeParse(req.body);
   if (!parse.success) return res.status(400).json({ error: 'invalid request', details: parse.error.flatten() });
   try {
@@ -93,6 +107,9 @@ router.get('/badge/:token', (req, res) => {
   const v = getByPublicToken(req.params.token);
   if (!v) return res.status(404).type('text/plain').send('visit not found');
   res.set('Cache-Control', 'private, no-store');
+  // The badge is a standalone print page with an inline print script and
+  // inline styles; all user data in it is HTML-escaped by renderBadge.
+  res.set('Content-Security-Policy', BADGE_CSP);
   res.type('text/html').send(renderBadge(v));
 });
 

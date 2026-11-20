@@ -11,7 +11,12 @@ services:
     # the host.
     user: "${VISITAS_UID:-visitas}:${VISITAS_GID:-visitas}"
     ports:
-      - "${VISITAS_PORT:-3000}:3000"
+      # VISITAS_BIND is the host address :3000 is published on. install.sh
+      # sets it to 127.0.0.1 with --domain, so once Caddy fronts the app the
+      # LAN can only reach it through Caddy. That matters because
+      # TRUST_PROXY=1 makes the app believe X-Forwarded-For: a client hitting
+      # :3000 directly could otherwise fake its IP and dodge rate limits.
+      - "${VISITAS_BIND:-0.0.0.0}:${VISITAS_PORT:-3000}:3000"
     environment:
       JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env (openssl rand -hex 64)}
       JWT_TTL_SECONDS: ${JWT_TTL_SECONDS:-43200}
@@ -20,6 +25,9 @@ services:
       # https://<domain> when --domain is used; the server drives the cookie
       # Secure flag off this value.
       BASE_URL: ${BASE_URL:-}
+      # Set to 1 when the app sits behind the bundled Caddy (tls profile) so
+      # rate limits see the real client IP. Leave empty for direct HTTP.
+      TRUST_PROXY: ${TRUST_PROXY:-}
       AD_BIND_PASSWORD: ${AD_BIND_PASSWORD:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMS_AUTH_TOKEN: ${SMS_AUTH_TOKEN:-}

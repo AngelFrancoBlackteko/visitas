@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import rateLimit from 'express-rate-limit';
+import { publicLimiter } from '../middleware/rateLimits.js';
 import { db } from '../db/index.js';
 import { signToken, COOKIE_NAME, cookieOptions } from '../auth/jwt.js';
 import { hashPassword, verifyPassword, validatePasswordStrength } from '../auth/passwords.js';
@@ -15,13 +15,9 @@ const router = Router();
 // its own — at 5 attempts/sec a determined attacker on the LAN gets to
 // brute-force way too fast. Skipped under NODE_ENV=test so the suite,
 // which makes lots of logins back-to-back, isn't perturbed.
-const loginLimiter = rateLimit({
-  windowMs: 60 * 1000,
+const loginLimiter = publicLimiter({
   max: 10,
-  standardHeaders: true,
-  legacyHeaders: false,
-  message: { error: 'too many login attempts, slow down and try again in a minute' },
-  skip: () => process.env.NODE_ENV === 'test',
+  message: 'too many login attempts, slow down and try again in a minute',
 });
 
 const loginSchema = z.object({
