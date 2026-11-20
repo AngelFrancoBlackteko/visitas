@@ -1,4 +1,5 @@
 import { getBranding } from './settings.js';
+import { getLanguage, localeTag, t } from '../i18n/index.js';
 
 /**
  * Render a printable badge as standalone HTML. The page is dimensioned for
@@ -8,9 +9,11 @@ import { getBranding } from './settings.js';
  */
 export function renderBadge(visit, { signoutQrSvg = null, signoutCode = null } = {}) {
   const branding = getBranding();
+  const lang = getLanguage();
+  const tr = (key, vars) => escapeHtml(t(key, vars, lang));
   const today = new Date();
-  const dateStr = today.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
-  const visitorName = escapeHtml(visit.visitorName || 'Visitor');
+  const dateStr = today.toLocaleDateString(localeTag(lang), { year: 'numeric', month: 'short', day: 'numeric' });
+  const visitorName = escapeHtml(visit.visitorName || t('badge.visitorFallback', {}, lang));
   const company = visit.company ? escapeHtml(visit.company) : '';
   const hostName = visit.host ? escapeHtml(visit.host.displayName || visit.host.username) : '—';
   const kioskName = visit.kiosk?.name ? escapeHtml(visit.kiosk.name) : '';
@@ -24,10 +27,10 @@ export function renderBadge(visit, { signoutQrSvg = null, signoutCode = null } =
     : null;
 
   return `<!doctype html>
-<html lang="en">
+<html lang="${lang}">
 <head>
   <meta charset="utf-8" />
-  <title>Visitor badge — ${visitorName}</title>
+  <title>${escapeHtml(t('badge.title', { name: visit.visitorName || t('badge.visitorFallback', {}, lang) }, lang))}</title>
   <style>
     @page { size: 4in 3in; margin: 6mm; }
     html, body { margin: 0; padding: 0; }
@@ -112,22 +115,22 @@ export function renderBadge(visit, { signoutQrSvg = null, signoutCode = null } =
     </div>
     <div class="meta-row">
       <div class="meta">
-        <div><span class="label">Visiting:</span> ${hostName}</div>
-        <div><span class="label">Date:</span> ${dateStr} &middot; expires end of day</div>
-        ${kioskName ? `<div><span class="label">Kiosk:</span> ${kioskName}</div>` : ''}
+        <div><span class="label">${tr('badge.visiting')}</span> ${hostName}</div>
+        <div><span class="label">${tr('badge.date')}</span> ${escapeHtml(dateStr)} &middot; ${tr('badge.expiresEod')}</div>
+        ${kioskName ? `<div><span class="label">${tr('badge.kiosk')}</span> ${kioskName}</div>` : ''}
       </div>
-      ${signoutQrSvg ? `<div class="signout-qr" data-signout-code="${escapeHtml(signoutCode || '')}">${signoutQrSvg}<div>Scan to sign out</div></div>` : ''}
+      ${signoutQrSvg ? `<div class="signout-qr" data-signout-code="${escapeHtml(signoutCode || '')}">${signoutQrSvg}<div>${tr('badge.scanToSignOut')}</div></div>` : ''}
     </div>
     <div class="footer">
       <span>${appName}</span>
       <span>#${visit.id}</span>
     </div>
-    ${printerHint ? `<div class="printer-hint">Print to: ${printerHint}</div>` : ''}
+    ${printerHint ? `<div class="printer-hint">${tr('badge.printTo')} ${printerHint}</div>` : ''}
   </div>
 
   <div class="controls">
-    <button onclick="window.print()">Print badge</button>
-    <button onclick="window.close()" style="background:#888">Close</button>
+    <button onclick="window.print()">${tr('badge.print')}</button>
+    <button onclick="window.close()" style="background:#888">${tr('badge.close')}</button>
   </div>
 
   <script>

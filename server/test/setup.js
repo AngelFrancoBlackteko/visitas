@@ -10,6 +10,9 @@ process.env.VISITAS_DB_PATH = ':memory:';
 process.env.JWT_SECRET = 'test-secret-do-not-use-in-production-at-all-12345';
 process.env.LOG_LEVEL = 'silent';
 process.env.PORT = '0';
+// Existing tests assert English copy; i18n.test.js covers Spanish (the
+// product default) explicitly.
+process.env.DEFAULT_LANGUAGE = 'en';
 const TMP = mkdtempSync(resolve(tmpdir(), 'visitas-test-'));
 process.env.DATA_DIR = TMP;
 process.on('exit', () => { try { rmSync(TMP, { recursive: true, force: true }); } catch {} });

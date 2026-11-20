@@ -1,27 +1,29 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api.js';
+import { useT } from '../i18n/index.jsx';
 
 export default function Kiosks() {
   const qc = useQueryClient();
+  const t = useT();
   const { data, isLoading } = useQuery({
     queryKey: ['kiosks'],
     queryFn: () => api.get('/api/kiosks'),
   });
   const [showNew, setShowNew] = useState(false);
 
-  if (isLoading) return <div>Loading…</div>;
+  if (isLoading) return <div>{t('common.loading')}</div>;
   const kiosks = data?.kiosks ?? [];
 
   return (
     <>
       <div className="row between">
-        <h1>Kiosks</h1>
-        <button onClick={() => setShowNew(s => !s)}>{showNew ? 'Cancel' : '+ Add kiosk'}</button>
+        <h1>{t('kiosks.title')}</h1>
+        <button onClick={() => setShowNew(s => !s)}>{showNew ? t('common.cancel') : t('kiosks.add')}</button>
       </div>
 
       <p className="muted">
-        Each iPad parks on its own kiosk URL: <code>/kiosk/&lt;slug&gt;</code>. Set a <strong>default printer name</strong> per kiosk so visitors see which printer their badge is going to. The actual printer assignment is enforced by your MDM at the iOS level — this field is the human-readable label, plus a printable hint on the badge.
+        {t('kiosks.intro1')}<code>/kiosk/&lt;slug&gt;</code>{t('kiosks.intro2')}<strong>{t('kiosks.intro3')}</strong>{t('kiosks.intro4')}
       </p>
 
       {showNew && <NewKiosk onCreated={() => { setShowNew(false); qc.invalidateQueries({ queryKey: ['kiosks'] }); }} />}
@@ -30,11 +32,11 @@ export default function Kiosks() {
         <table>
           <thead>
             <tr>
-              <th>Slug</th>
-              <th>Name</th>
-              <th>Default printer (MDM hint)</th>
-              <th>URL</th>
-              <th>Status</th>
+              <th>{t('kiosks.slug')}</th>
+              <th>{t('common.name')}</th>
+              <th>{t('kiosks.printerCol')}</th>
+              <th>{t('kiosks.url')}</th>
+              <th>{t('common.status')}</th>
               <th />
             </tr>
           </thead>
@@ -50,6 +52,7 @@ export default function Kiosks() {
 }
 
 function KioskRow({ kiosk, onChanged }) {
+  const t = useT();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(kiosk.name);
   const [printer, setPrinter] = useState(kiosk.defaultPrinterName ?? '');
@@ -76,22 +79,22 @@ function KioskRow({ kiosk, onChanged }) {
       </td>
       <td>
         {editing
-          ? <input value={printer} onChange={e => setPrinter(e.target.value)} placeholder="e.g. Brother QL-820NWB (Reception)" />
+          ? <input value={printer} onChange={e => setPrinter(e.target.value)} placeholder={t('kiosks.printerPlaceholderEdit')} />
           : (kiosk.defaultPrinterName || <span className="muted">—</span>)}
       </td>
       <td><code>/kiosk/{kiosk.slug}</code></td>
-      <td>{kiosk.active ? <span className="badge muted">active</span> : <span className="badge disabled">inactive</span>}</td>
+      <td>{kiosk.active ? <span className="badge muted">{t('common.active')}</span> : <span className="badge disabled">{t('common.inactive')}</span>}</td>
       <td style={{ textAlign: 'right' }}>
         {editing ? (
           <span className="row">
-            <button onClick={() => m.mutate({ name, defaultPrinterName: printer || null })} disabled={m.isPending}>Save</button>
-            <button className="secondary" onClick={() => { setEditing(false); setName(kiosk.name); setPrinter(kiosk.defaultPrinterName ?? ''); }}>Cancel</button>
+            <button onClick={() => m.mutate({ name, defaultPrinterName: printer || null })} disabled={m.isPending}>{t('common.save')}</button>
+            <button className="secondary" onClick={() => { setEditing(false); setName(kiosk.name); setPrinter(kiosk.defaultPrinterName ?? ''); }}>{t('common.cancel')}</button>
           </span>
         ) : (
           <span className="row">
-            <button className="secondary" onClick={() => setEditing(true)}>Edit</button>
+            <button className="secondary" onClick={() => setEditing(true)}>{t('common.edit')}</button>
             {kiosk.slug !== 'default' && kiosk.active && (
-              <button className="danger" onClick={() => dm.mutate()} disabled={dm.isPending}>Deactivate</button>
+              <button className="danger" onClick={() => dm.mutate()} disabled={dm.isPending}>{t('kiosks.deactivate')}</button>
             )}
           </span>
         )}
@@ -102,6 +105,7 @@ function KioskRow({ kiosk, onChanged }) {
 }
 
 function NewKiosk({ onCreated }) {
+  const t = useT();
   const [slug, setSlug] = useState('');
   const [name, setName] = useState('');
   const [printer, setPrinter] = useState('');
@@ -121,16 +125,16 @@ function NewKiosk({ onCreated }) {
 
   return (
     <form className="panel" onSubmit={onSubmit}>
-      <h2>New kiosk</h2>
-      <label htmlFor="new-kiosk-slug">Slug <span className="req">*</span></label>
-      <input id="new-kiosk-slug" value={slug} onChange={e => setSlug(e.target.value.toLowerCase())} required pattern="[a-z0-9-]+" placeholder="reception" />
-      <label htmlFor="new-kiosk-name">Display name <span className="req">*</span></label>
-      <input id="new-kiosk-name" value={name} onChange={e => setName(e.target.value)} required placeholder="Reception desk" />
-      <label htmlFor="new-kiosk-printer">Default printer name (optional, used as a hint on the badge)</label>
-      <input id="new-kiosk-printer" value={printer} onChange={e => setPrinter(e.target.value)} placeholder="Brother QL-820NWB (Reception)" />
+      <h2>{t('kiosks.newTitle')}</h2>
+      <label htmlFor="new-kiosk-slug">{t('kiosks.slug')} <span className="req">*</span></label>
+      <input id="new-kiosk-slug" value={slug} onChange={e => setSlug(e.target.value.toLowerCase())} required pattern="[a-z0-9-]+" placeholder={t('kiosks.slugPlaceholder')} />
+      <label htmlFor="new-kiosk-name">{t('kiosks.displayName')} <span className="req">*</span></label>
+      <input id="new-kiosk-name" value={name} onChange={e => setName(e.target.value)} required placeholder={t('kiosks.displayNamePlaceholder')} />
+      <label htmlFor="new-kiosk-printer">{t('kiosks.printerLabel')}</label>
+      <input id="new-kiosk-printer" value={printer} onChange={e => setPrinter(e.target.value)} placeholder={t('kiosks.printerPlaceholder')} />
       {err && <div className="error">{err}</div>}
       <div style={{ marginTop: 16 }}>
-        <button type="submit" disabled={m.isPending}>{m.isPending ? 'Creating…' : 'Create kiosk'}</button>
+        <button type="submit" disabled={m.isPending}>{m.isPending ? t('common.creating') : t('kiosks.create')}</button>
       </div>
     </form>
   );

@@ -2,6 +2,7 @@ import { Routes, Route, Navigate, NavLink, useNavigate } from 'react-router-dom'
 import { useAuth } from './auth.jsx';
 import { useBranding } from './branding.jsx';
 import { useTheme } from './theme.jsx';
+import { useT } from './i18n/index.jsx';
 import Login from './pages/Login.jsx';
 import ChangePassword from './pages/ChangePassword.jsx';
 import Users from './pages/Users.jsx';
@@ -18,8 +19,9 @@ import Bans from './pages/Bans.jsx';
 
 export default function App() {
   const { user, loading } = useAuth();
+  const t = useT();
 
-  if (loading) return <div className="login-wrap">Loading…</div>;
+  if (loading) return <div className="login-wrap">{t('common.loading')}</div>;
 
   if (!user) {
     return (
@@ -81,6 +83,8 @@ function TopBar() {
   const { appName, logoUrl, version } = useBranding();
   const { applied: theme, toggle: toggleTheme } = useTheme();
   const nav = useNavigate();
+  const t = useT();
+  const themeLabel = theme === 'dark' ? t('nav.toLight') : t('nav.toDark');
 
   const isAdmin = user.role === 'admin';
 
@@ -93,17 +97,17 @@ function TopBar() {
       </div>
       <nav>
         <NavLink to="/admin/active-visitors" className={({ isActive }) => isActive ? 'active' : ''}>
-          Active visitors
+          {t('nav.activeVisitors')}
         </NavLink>
-        <NavLink to="/admin/bans" className={({ isActive }) => isActive ? 'active' : ''}>Bans</NavLink>
+        <NavLink to="/admin/bans" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.bans')}</NavLink>
         {isAdmin && (
           <>
-            <NavLink to="/admin/visitors" className={({ isActive }) => isActive ? 'active' : ''}>Visitors</NavLink>
-            <NavLink to="/admin/invitations" className={({ isActive }) => isActive ? 'active' : ''}>Invitations</NavLink>
-            <NavLink to="/admin/users" className={({ isActive }) => isActive ? 'active' : ''}>Users</NavLink>
-            <NavLink to="/admin/kiosks" className={({ isActive }) => isActive ? 'active' : ''}>Kiosks</NavLink>
-            <NavLink to="/admin/documents" className={({ isActive }) => isActive ? 'active' : ''}>Documents</NavLink>
-            <NavLink to="/admin/settings" className={({ isActive }) => isActive ? 'active' : ''}>Settings</NavLink>
+            <NavLink to="/admin/visitors" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.visitors')}</NavLink>
+            <NavLink to="/admin/invitations" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.invitations')}</NavLink>
+            <NavLink to="/admin/users" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.users')}</NavLink>
+            <NavLink to="/admin/kiosks" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.kiosks')}</NavLink>
+            <NavLink to="/admin/documents" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.documents')}</NavLink>
+            <NavLink to="/admin/settings" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.settings')}</NavLink>
           </>
         )}
       </nav>
@@ -111,15 +115,15 @@ function TopBar() {
         <button
           className="icon-button"
           onClick={toggleTheme}
-          aria-label={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          aria-label={themeLabel}
           data-testid="theme-toggle"
-          title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
+          title={themeLabel}
         >
           {theme === 'dark' ? '☀️' : '🌙'}
         </button>
-        <span>{user.displayName || user.username}{user.role !== 'admin' && ` · ${user.role}`}</span>
-        <span className="version-pill" data-testid="version-pill" title="visitas.world version">v{version}</span>
-        <button className="secondary" onClick={async () => { await logout(); nav('/login'); }}>Sign out</button>
+        <span>{user.displayName || user.username}{user.role !== 'admin' && ` · ${t(`role.${user.role}`)}`}</span>
+        <span className="version-pill" data-testid="version-pill" title={t('nav.version')}>v{version}</span>
+        <button className="secondary" onClick={async () => { await logout(); nav('/login'); }}>{t('nav.signOut')}</button>
       </div>
     </header>
   );

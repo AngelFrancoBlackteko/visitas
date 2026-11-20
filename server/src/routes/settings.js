@@ -7,6 +7,7 @@ import { randomBytes } from 'node:crypto';
 import { config } from '../config.js';
 import { requireAuth, requireRole, blockIfPasswordChangeRequired } from '../middleware/auth.js';
 import { getBranding, setSetting, clearSetting, getSetting, getSignoutMode, SIGNOUT_MODES } from '../services/settings.js';
+import { SUPPORTED_LANGUAGES, LANGUAGE_SETTING_KEY, getLanguage, t } from '../i18n/index.js';
 
 const router = Router();
 
@@ -57,6 +58,24 @@ router.put('/kiosk-signout', requireRole('admin'), (req, res) => {
   if (!parse.success) return res.status(400).json({ error: 'invalid request', details: parse.error.flatten() });
   setSetting('kiosk.signout_mode', parse.data.mode);
   res.json({ mode: parse.data.mode });
+});
+
+// --- Interface language (admin only) ---------------------------------------
+//
+// One language for the whole site: kiosk, badge, wall view, admin UI, and
+// the emails/SMS the server sends. Read publicly via /branding.
+
+const languageSchema = z.object({ language: z.enum(SUPPORTED_LANGUAGES) }).strict();
+
+router.get('/language', (_req, res) => {
+  res.json({ language: getLanguage(), supported: SUPPORTED_LANGUAGES });
+});
+
+router.put('/language', requireRole('admin'), (req, res) => {
+  const parse = languageSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: 'invalid request', details: parse.error.flatten() });
+  setSetting(LANGUAGE_SETTING_KEY, parse.data.language);
+  res.json({ language: parse.data.language, supported: SUPPORTED_LANGUAGES });
 });
 
 const brandingSchema = z.object({
@@ -174,9 +193,9 @@ router.post('/email/test', requireRole('admin'), async (req, res) => {
   try {
     await sendEmail({
       to: parse.data.to,
-      subject: '[visitas.world] Test email',
-      text: 'This is a test email from visitas.world. If you got this, your SMTP configuration is working.',
-      html: '<p>This is a test email from <strong>visitas.world</strong>.</p><p>If you got this, your SMTP configuration is working.</p>',
+      subject: t('test.email.subject'),
+      text: t('test.email.text'),
+      html: t('test.email.html'),
       event: 'test_email',
     });
     res.json({ ok: true });
@@ -197,7 +216,7 @@ router.post('/sms/test', requireRole('admin'), async (req, res) => {
   try {
     await sendSms({
       to: parse.data.to,
-      body: '[visitas.world] Test SMS — if you got this, your SMS adapter is working.',
+      body: t('test.sms'),
       event: 'test_sms',
     });
     res.json({ ok: true });

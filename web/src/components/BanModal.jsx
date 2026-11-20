@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useMutation } from '@tanstack/react-query';
 import { api } from '../api.js';
+import { useT } from '../i18n/index.jsx';
 
 /**
  * Add-a-ban form, used as a modal from the Visitors and Active Visitors
@@ -18,6 +19,7 @@ export default function BanModal({ prefill = {}, onClose, onSaved }) {
     : prefill.email ? 'email'
     : 'name';
 
+  const t = useT();
   const [mode, setMode] = useState(initialMode);
   const [email, setEmail] = useState(prefill.email ?? '');
   const [namePattern, setNamePattern] = useState(prefill.visitorName ?? '');
@@ -45,7 +47,7 @@ export default function BanModal({ prefill = {}, onClose, onSaved }) {
 
   const targetSummary = (
     <span>
-      {prefill.visitorName ? <strong>{prefill.visitorName}</strong> : <em className="muted">unknown name</em>}
+      {prefill.visitorName ? <strong>{prefill.visitorName}</strong> : <em className="muted">{t('banModal.unknownName')}</em>}
       {prefill.company ? <> ({prefill.company})</> : null}
       {prefill.email ? <span className="muted"> · {prefill.email}</span> : null}
     </span>
@@ -54,46 +56,46 @@ export default function BanModal({ prefill = {}, onClose, onSaved }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <form className="panel modal" onClick={e => e.stopPropagation()} onSubmit={onSubmit}>
-        <h2 style={{ margin: 0 }}>Ban visitor</h2>
+        <h2 style={{ margin: 0 }}>{t('banModal.title')}</h2>
         <p className="muted" style={{ marginTop: 4 }}>{targetSummary}</p>
 
-        <label htmlFor="ban-mode">Match mode <span className="req">*</span></label>
+        <label htmlFor="ban-mode">{t('banModal.mode')} <span className="req">*</span></label>
         <select id="ban-mode" value={mode} onChange={e => setMode(e.target.value)}>
-          {prefill.visitorId && <option value="visitor">By visitor record (most specific)</option>}
-          <option value="email">By email (case-insensitive exact)</option>
-          <option value="name">By name + company (substring)</option>
+          {prefill.visitorId && <option value="visitor">{t('banModal.byVisitor')}</option>}
+          <option value="email">{t('banModal.byEmail')}</option>
+          <option value="name">{t('banModal.byName')}</option>
         </select>
 
         {mode === 'email' && (
           <>
-            <label htmlFor="ban-email">Email <span className="req">*</span></label>
+            <label htmlFor="ban-email">{t('common.email')} <span className="req">*</span></label>
             <input id="ban-email" type="email" value={email} onChange={e => setEmail(e.target.value)} required />
           </>
         )}
 
         {mode === 'name' && (
           <>
-            <label htmlFor="ban-name">Name pattern <span className="req">*</span></label>
-            <input id="ban-name" value={namePattern} onChange={e => setNamePattern(e.target.value)} required placeholder="John Doe" />
-            <label htmlFor="ban-company">Company pattern (optional, narrows the match)</label>
-            <input id="ban-company" value={companyPattern} onChange={e => setCompanyPattern(e.target.value)} placeholder="ACME" />
+            <label htmlFor="ban-name">{t('banModal.namePattern')} <span className="req">*</span></label>
+            <input id="ban-name" value={namePattern} onChange={e => setNamePattern(e.target.value)} required placeholder={t('banModal.namePlaceholder')} />
+            <label htmlFor="ban-company">{t('banModal.companyPattern')}</label>
+            <input id="ban-company" value={companyPattern} onChange={e => setCompanyPattern(e.target.value)} placeholder={t('banModal.companyPlaceholder')} />
           </>
         )}
 
-        <label htmlFor="ban-reason">Reason <span className="req">*</span></label>
+        <label htmlFor="ban-reason">{t('common.reason')} <span className="req">*</span></label>
         <textarea id="ban-reason" value={reason} onChange={e => setReason(e.target.value)} required rows={3}
-          placeholder="Visible only in the audit log + admin Bans page. Visitors get a generic refusal at the kiosk." />
+          placeholder={t('banModal.reasonPlaceholder')} />
 
-        <label htmlFor="ban-expires">Expires (optional — leave blank for permanent)</label>
+        <label htmlFor="ban-expires">{t('banModal.expires')}</label>
         <input id="ban-expires" type="datetime-local" value={expiresAt} onChange={e => setExpiresAt(e.target.value)} />
 
         {m.error && <div className="error">{m.error.data?.error || m.error.message}</div>}
 
         <div className="row" style={{ marginTop: 16 }}>
           <button type="submit" className="danger" disabled={m.isPending || !reason.trim()}>
-            {m.isPending ? 'Banning…' : 'Ban'}
+            {m.isPending ? t('banModal.banning') : t('common.ban')}
           </button>
-          <button type="button" className="secondary" onClick={onClose}>Cancel</button>
+          <button type="button" className="secondary" onClick={onClose}>{t('common.cancel')}</button>
         </div>
       </form>
     </div>

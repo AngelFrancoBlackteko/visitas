@@ -228,11 +228,26 @@ visitas/
 | Where | What | Lifetime |
 | --- | --- | --- |
 | `.env` (Docker) / `server/.env` (local) | Secrets: `JWT_SECRET` (min 32 chars, required), `AD_BIND_PASSWORD`, `SMTP_PASSWORD`, `SMS_AUTH_TOKEN`; `TRUST_PROXY=1` behind Caddy | Read on every server start |
+| Admin → Settings → Language | Site language (`es` Spanish-Mexico, default; or `en`) for kiosk, badge, wall view, admin UI, emails and SMS. `DEFAULT_LANGUAGE` env sets it until an admin saves one | Stored in DB |
 | `config/visitor-form.json` | Kiosk field schema (sample only in v0.1; consumed by v0.2's kiosk) | Seeded into DB on first migration once v0.2 lands; admin UI authoritative thereafter |
 | `data/visitas.sqlite` | Users, settings, audit log | Authoritative |
 | `data/uploads/` | Admin-uploaded files (e.g. logo) | Authoritative |
 
 Secrets always come from env vars, never from JSON.
+
+## Languages
+
+The UI and every message the server sends (badge, host email/SMS, invitation,
+signed-NDA copy) ship in Spanish (Mexico) and English. Spanish is the default.
+Strings live in `web/src/i18n/{es,en}.js` and `server/src/i18n/messages.js`;
+`server/test/i18n.test.js` fails if a key is missing from either language.
+In `config/visitor-form.json`, `label`, `placeholder` and each option may be
+a plain string or `{ "es": "...", "en": "..." }`. NDA and safety documents
+are shown exactly as the admin wrote them.
+
+To add a language: copy `es.js` to `<code>.js` and translate, add a block to
+`messages.js`, add the code to `SUPPORTED_LANGUAGES` and to the picker in
+`Settings.jsx`.
 
 ## Visitor form schema
 

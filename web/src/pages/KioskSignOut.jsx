@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import { useBranding } from '../branding.jsx';
 import { api } from '../api.js';
+import { useT } from '../i18n/index.jsx';
 
 // The badge QR encodes `<base>/kiosk/signout/<32-hex code>`. A USB/Bluetooth
 // scanner "types" that URL into the field below; a phone camera opens it.
@@ -17,6 +18,7 @@ export default function KioskSignOut() {
   const { code: codeFromUrl } = useParams();
   const qc = useQueryClient();
   const nav = useNavigate();
+  const t = useT();
 
   const modeQ = useQuery({
     queryKey: ['kiosk-signout-mode'],
@@ -60,20 +62,26 @@ export default function KioskSignOut() {
       const r = await api.post(`/api/visits/${id}/sign-out`, {});
       finish(r.visit);
     } catch (e) {
-      setErr(e.data?.error || e.message);
+      setErr(
+        e.status === 403 ? t('signout.useBadge')
+          : e.status === 409 ? t('signout.alreadyOut')
+          : e.status === 429 ? t('common.tooManyRequests')
+          : e.data?.error || e.message,
+      );
     } finally { setBusy(null); }
   };
 
   const onSignOutByCode = async (raw) => {
     const code = extractSignoutCode(raw);
-    if (!code) { setErr('That doesn’t look like a visitor badge. Please try again or ask reception.'); return; }
+    if (!code) { setErr(t('signout.notBadge')); return; }
     setBusy('badge'); setErr(null);
     try {
       const r = await api.post('/api/visits/sign-out/badge', { code });
       finish(r.visit);
     } catch (e) {
-      if (e.status === 409) setErr('This badge is already signed out.');
-      else if (e.status === 404) setErr('Badge not recognised. Please ask reception.');
+      if (e.status === 409) setErr(t('signout.alreadyOut'));
+      else if (e.status === 404 || e.status === 400) setErr(t('signout.notRecognised'));
+      else if (e.status === 429) setErr(t('common.tooManyRequests'));
       else setErr(e.data?.error || e.message);
     } finally {
       setBusy(null);
@@ -92,9 +100,9 @@ export default function KioskSignOut() {
       <div className="kiosk-wrap">
         {brand}
         <div className="kiosk-card">
-          <h1>Goodbye, {signedOut.visitorName?.split(' ')[0] || 'visitor'}.</h1>
-          <p>You&rsquo;ve been signed out. Have a good day.</p>
-          <div className="kiosk-stub">Returning to the welcome screen automatically…</div>
+          <h1>{t('signout.goodbye', { name: signedOut.visitorName?.split(' ')[0] || t('common.visitor') })}</h1>
+          <p>{t('signout.signedOut')}</p>
+          <div className="kiosk-stub">{t('kiosk.returning')}</div>
         </div>
       </div>
     );
@@ -107,8 +115,8 @@ export default function KioskSignOut() {
       <div className="kiosk-wrap">
         {brand}
         <div className="kiosk-card kiosk-signout">
-          <h1>Sign out</h1>
-          <p>Tap the button to sign out of your visit.</p>
+          <h1>{t('signout.title')}</h1>
+          <p>{t('signout.tapButton')}</p>
           {err && <div className="error">{err}</div>}
           <button
             type="button"
@@ -116,7 +124,7 @@ export default function KioskSignOut() {
             disabled={busy === 'badge'}
             onClick={() => onSignOutByCode(codeFromUrl)}
           >
-            Sign me out
+            {t('signout.signMeOut')}
           </button>
         </div>
       </div>
@@ -127,9 +135,9 @@ export default function KioskSignOut() {
     <div className="kiosk-wrap">
       {brand}
       <div className="kiosk-card kiosk-signout">
-        <h1>Sign out</h1>
+        <h1>{t('signout.title')}</h1>
 
-        {modeQ.isLoading && <p className="muted">Loading…</p>}
+        {modeQ.isLoading && <p className="muted">{t('common.loading')}</p>}
         {err && <div className="error">{err}</div>}
 
         {modeQ.isSuccess && mode === 'badge' && (
@@ -137,8 +145,8 @@ export default function KioskSignOut() {
             onSubmit={(e) => { e.preventDefault(); onSignOutByCode(scan); }}
             className="signout-scan"
           >
-            <p>Scan the QR code on your visitor badge. You can also scan it with your phone&rsquo;s camera.</p>
-            <label htmlFor="signout-scan-input" className="muted">Badge code</label>
+            <p>{t('signout.scanPrompt')}</p>
+            <label htmlFor="signout-scan-input" className="muted">{t('signout.badgeCode')}</label>
             <input
               id="signout-scan-input"
               ref={scanRef}
@@ -148,19 +156,19 @@ export default function KioskSignOut() {
               autoCapitalize="off"
               spellCheck={false}
               disabled={busy === 'badge'}
-              placeholder="Scan your badge"
+              placeholder={t('signout.scanPlaceholder')}
             />
-            <button type="submit" disabled={busy === 'badge' || !scan.trim()}>Sign out</button>
-            <p className="muted">Lost your badge? Please ask reception to sign you out.</p>
+            <button type="submit" disabled={busy === 'badge' || !scan.trim()}>{t('signout.submit')}</button>
+            <p className="muted">{t('signout.lostBadge')}</p>
           </form>
         )}
 
         {showList && (
           <>
-            <p>Tap your name below to sign out.</p>
-            {listQ.isLoading && <p className="muted">Loading…</p>}
+            <p>{t('signout.tapName')}</p>
+            {listQ.isLoading && <p className="muted">{t('common.loading')}</p>}
             {!listQ.isLoading && listQ.data?.visits?.length === 0 && (
-              <p className="muted">No one is currently signed in.</p>
+              <p className="muted">{t('signout.noOne')}</p>
             )}
             <div className="signout-list">
               {(listQ.data?.visits ?? []).map(v => (
@@ -172,7 +180,7 @@ export default function KioskSignOut() {
                   onClick={() => onSignOutById(v.id)}
                 >
                   <span className="signout-name">{v.visitorName}</span>
-                  <span className="signout-host muted">visiting {v.hostName ?? 'someone'}</span>
+                  <span className="signout-host muted">{t('signout.visiting', { host: v.hostName ?? t('signout.someone') })}</span>
                 </button>
               ))}
             </div>
@@ -180,7 +188,7 @@ export default function KioskSignOut() {
         )}
 
         <div style={{ marginTop: 24 }}>
-          <Link to="/kiosk" className="muted">← Back to sign-in</Link>
+          <Link to="/kiosk" className="muted">{t('signout.back')}</Link>
         </div>
       </div>
     </div>
