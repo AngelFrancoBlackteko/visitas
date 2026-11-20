@@ -75,7 +75,7 @@ export function createVisit({
 
   const host = db.prepare("SELECT id, role, active FROM users WHERE id = ?").get(hostUserId);
   if (!host) throw httpError(400, 'unknown host');
-  if (host.role !== 'admin') throw httpError(400, 'host must be a host (role=admin), not a security user');
+  if (host.role !== 'admin' && host.role !== 'host') throw httpError(400, 'host must be a host or admin, not a security user');
   if (!host.active) throw httpError(400, 'host is inactive');
 
   let kioskId = null;
@@ -280,6 +280,29 @@ export function listActive({ kioskSlug = null } = {}) {
   if (kioskSlug) { sql += ' AND k.slug = ?'; params.push(kioskSlug); }
   sql += ' ORDER BY v.signed_in_at ASC';
   return db.prepare(sql).all(...params).map(rowToVisit);
+}
+
+/**
+ * A host's own visits: everyone on site for them now, plus today's
+ * sign-outs. Only what the host needs to greet the visitor — no email,
+ * phone, photo or tokens.
+ */
+export function listForHost(hostUserId) {
+  const sql = `${VISIT_SQL}
+    WHERE v.host_user_id = ?
+      AND (v.status = 'on_site' OR v.signed_in_at >= datetime('now', '-24 hours'))
+    ORDER BY v.status = 'on_site' DESC, v.signed_in_at DESC
+    LIMIT 100`;
+  return db.prepare(sql).all(hostUserId).map(rowToVisit).map(v => ({
+    id: v.id,
+    visitorName: v.visitorName,
+    company: v.company,
+    purpose: v.purpose,
+    kioskName: v.kiosk?.name ?? null,
+    status: v.status,
+    signedInAt: v.signedInAt,
+    signedOutAt: v.signedOutAt,
+  }));
 }
 
 export function listAll({ status = null, kioskSlug = null, limit = 200 } = {}) {

@@ -4,6 +4,24 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.13.0] — 2026-11-20
+
+Host role: hosts no longer need to be admins.
+
+### Added
+- **`host` role.** Hosts appear in the kiosk host list, receive alerts, and
+  see only **My visitors** (`/admin/my-visits`, `GET /api/visits/mine`:
+  their on-site visitors plus the last 24 hours, without email, phone,
+  photo or tokens). They can't reach any admin or security page or API.
+- Users → new users default to *host*; any user can be switched to/from
+  host. Migration `013_host_role.sql` widens `users.role`.
+- A host's phone alert opens *My visitors*.
+
+### Changed
+- **AD users now start as `host`, not `admin`.** Existing AD users keep
+  their current role; promote admins from Users.
+- Admins keep working as hosts; existing local users are unchanged.
+
 ## [1.12.0] — 2026-11-20
 
 Browser alerts: the host's phone rings when their visitor arrives.

@@ -36,9 +36,11 @@ export default {
   // Roles
   'role.admin': 'administrador',
   'role.security': 'seguridad',
+  'role.host': 'anfitrión',
 
   // Barra superior
   'nav.activeVisitors': 'Visitantes en sitio',
+  'nav.myVisits': 'Mis visitas',
   'nav.bans': 'Bloqueos',
   'nav.visitors': 'Visitantes',
   'nav.invitations': 'Invitaciones',
@@ -356,7 +358,7 @@ export default {
   // Usuarios
   'users.title': 'Usuarios',
   'users.add': '+ Agregar usuario',
-  'users.intro1': 'Dos roles: los usuarios ',
+  'users.intro1': 'Tres roles: los usuarios ',
   'users.intro2': ' son personal a quien los visitantes pueden venir a ver, y tienen acceso completo a este panel.',
   'users.intro3': ' solo ven la página de visitantes en sitio y pueden forzar salidas (útil para recepción o el cierre del día). Los visitantes no son usuarios.',
   'users.username': 'Usuario',
@@ -371,6 +373,8 @@ export default {
   'users.newTitle': 'Nuevo usuario',
   'users.roleAdminLong': 'administrador — personal, puede ser anfitrión, acceso completo al panel',
   'users.roleSecurityLong': 'seguridad — solo visitantes en sitio, puede forzar salidas',
+  'users.roleHostLong': 'anfitrión — recibe visitas y avisos, solo ve sus propias visitas',
+  'users.intro4': ' reciben visitas y avisos en su celular y solo ven sus propias visitas; no administran nada.',
   'users.initialPassword': 'Contraseña inicial',
   'users.passwordPlaceholder': '≥ 10 caracteres, con mayúsculas, minúsculas y números',
   'users.mobile': 'Celular (para avisos por SMS)',
@@ -426,4 +430,12 @@ export default {
   'push.why.needsHttps': 'Los avisos solo funcionan cuando visitas.world se abre con https:// (con dominio). Pida a su administrador la dirección segura.',
   'push.why.iosAddToHome': 'En iPhone o iPad: toque Compartir y luego "Agregar a pantalla de inicio", abra visitas.world desde ese ícono y active los avisos ahí (requiere iOS 16.4 o más reciente).',
   'push.why.unsupported': 'Este navegador no admite avisos. Use Chrome, Edge, Firefox o Safari actualizados.',
+
+  // Mis visitas (anfitrión)
+  'mine.title': 'Mis visitas',
+  'mine.here': 'Le esperan ahora',
+  'mine.nobody': 'Nadie le espera en este momento.',
+  'mine.left': 'Ya se fueron (últimas 24 horas)',
+  'mine.arrived': 'Llegó a las {time} ({ago})',
+  'mine.leftAt': 'Salió a las {time}',
 };

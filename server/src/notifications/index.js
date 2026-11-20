@@ -45,7 +45,7 @@ export async function notifyVisitEvent(event, { visit, actor = null } = {}) {
     tasks.push(sendPushToUser(host.id, {
       title: subject.replace(/^\[[^\]]*\]\s*/, ''),
       body,
-      url: '/admin/active-visitors',
+      url: host.role === 'host' ? '/admin/my-visits' : '/admin/active-visitors',
       tag: `visit-${visit.id}`,
     }, { event }));
   }
@@ -132,7 +132,7 @@ function loadHost(visit) {
   const id = visit.host?.id ?? visit.host_user_id;
   if (!id) return null;
   return db.prepare(
-    'SELECT id, username, email, display_name, phone FROM users WHERE id = ? AND active = 1',
+    'SELECT id, username, email, display_name, phone, role FROM users WHERE id = ? AND active = 1',
   ).get(id);
 }
 

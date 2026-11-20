@@ -27,6 +27,7 @@ export default function Users() {
       <p className="muted">
         {t('users.intro1')}<code>{t('role.admin')}</code>{t('users.intro2')}
         {' '}<code>{t('role.security')}</code>{t('users.intro3')}
+        {' '}<code>{t('role.host')}</code>{t('users.intro4')}
       </p>
 
       {showNew && (
@@ -87,6 +88,7 @@ function UserRow({ user, onReset, onChanged }) {
         {editingRole ? (
           <span className="row">
             <select value={role} onChange={e => setRole(e.target.value)} style={{ width: 'auto' }}>
+              <option value="host">{t('role.host')}</option>
               <option value="admin">{t('users.roleAdminHost')}</option>
               <option value="security">{t('role.security')}</option>
             </select>
@@ -122,7 +124,7 @@ function NewUser({ onCreated }) {
   const [email, setEmail] = useState('');
   const [displayName, setDisplayName] = useState('');
   const [phone, setPhone] = useState('');
-  const [role, setRole] = useState('admin');
+  const [role, setRole] = useState('host');
   const [err, setErr] = useState(null);
 
   const m = useMutation({
@@ -149,6 +151,7 @@ function NewUser({ onCreated }) {
       <h2>{t('users.newTitle')}</h2>
       <label htmlFor="new-user-role">{t('users.role')} <span className="req">*</span></label>
       <select id="new-user-role" value={role} onChange={e => setRole(e.target.value)}>
+        <option value="host">{t('users.roleHostLong')}</option>
         <option value="admin">{t('users.roleAdminLong')}</option>
         <option value="security">{t('users.roleSecurityLong')}</option>
       </select>

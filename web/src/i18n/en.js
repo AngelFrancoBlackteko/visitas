@@ -35,9 +35,11 @@ export default {
   // Roles
   'role.admin': 'admin',
   'role.security': 'security',
+  'role.host': 'host',
 
   // Top bar
   'nav.activeVisitors': 'Active visitors',
+  'nav.myVisits': 'My visitors',
   'nav.bans': 'Bans',
   'nav.visitors': 'Visitors',
   'nav.invitations': 'Invitations',
@@ -355,7 +357,7 @@ export default {
   // Users
   'users.title': 'Users',
   'users.add': '+ Add user',
-  'users.intro1': 'Two roles: ',
+  'users.intro1': 'Three roles: ',
   'users.intro2': ' users are workshop members visitors can sign in to see, and they have full access to this admin UI.',
   'users.intro3': ' users only see the active-visitors page and can force visitors out (useful for reception or end-of-day cleanup). Visitors themselves are not users.',
   'users.username': 'Username',
@@ -370,6 +372,8 @@ export default {
   'users.newTitle': 'New user',
   'users.roleAdminLong': 'admin — workshop member, hostable, full admin UI',
   'users.roleSecurityLong': 'security — active-visitors page only, can force sign-out',
+  'users.roleHostLong': 'host — receives visitors and alerts, sees only their own visitors',
+  'users.intro4': ' users receive visitors and phone alerts and only see their own visitors; they administer nothing.',
   'users.initialPassword': 'Initial password',
   'users.passwordPlaceholder': '≥ 10 chars, mix of upper/lower/digit',
   'users.mobile': 'Mobile (for SMS notifications)',
@@ -425,4 +429,12 @@ export default {
   'push.why.needsHttps': 'Alerts only work when visitas.world is opened over https:// (with a domain). Ask your admin for the secure address.',
   'push.why.iosAddToHome': 'On iPhone or iPad: tap Share, then "Add to Home Screen", open visitas.world from that icon and turn alerts on there (needs iOS 16.4 or later).',
   'push.why.unsupported': 'This browser doesn’t support alerts. Use an up-to-date Chrome, Edge, Firefox or Safari.',
+
+  // My visitors (host)
+  'mine.title': 'My visitors',
+  'mine.here': 'Waiting for you now',
+  'mine.nobody': 'No one is waiting for you right now.',
+  'mine.left': 'Already left (last 24 hours)',
+  'mine.arrived': 'Arrived at {time} ({ago})',
+  'mine.leftAt': 'Left at {time}',
 };

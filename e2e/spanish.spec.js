@@ -12,6 +12,8 @@ import { test, expect } from '@playwright/test';
 // signed-in browser context.
 
 const ADMIN_PASSWORD = 'AdminNewPass1234';
+// 1×1 transparent PNG for the NDA signature in API-driven sign-ins.
+const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -154,6 +156,39 @@ test('es: host sees the device-alerts panel and the service worker is served', a
     expect((await manifest.json()).display).toBe('standalone');
   } finally {
     await page.close();
+  }
+});
+
+test('es: a host only sees their own visitors and the alerts panel', async ({ browser }, testInfo) => {
+  const created = await adminCtx.request.post('/api/users', { data: { username: 'hana', password: 'HanaTemp12345', displayName: 'Hana Anfitriona', role: 'host' } });
+  expect(created.status()).toBe(201);
+  const hostId = (await created.json()).user.id;
+
+  const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  try {
+    expect((await ctx.request.post('/api/auth/login', { data: { username: 'hana', password: 'HanaTemp12345' } })).ok()).toBe(true);
+    expect((await ctx.request.post('/api/auth/change-password', { data: { currentPassword: 'HanaTemp12345', newPassword: 'HanaNueva12345' } })).ok()).toBe(true);
+
+    // A visitor arrives for Hana (kiosk API, no documents needed for the check).
+    const docs = await (await ctx.request.get('/api/documents/active')).json();
+    const acks = [];
+    for (const d of docs.documents ?? []) acks.push({ kind: d.kind, signedName: 'Rita Visita', signaturePngBase64: d.kind === 'nda' ? TINY_PNG : undefined });
+    const visit = await ctx.request.post('/api/visits', { data: { visitorName: 'Rita Visita', company: 'Proveedora SA', hostUserId: hostId, acknowledgments: acks } });
+    expect(visit.status()).toBe(201);
+
+    const page = await ctx.newPage();
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/admin\/my-visits/);
+    await expect(page.getByRole('heading', { name: 'Mis visitas' })).toBeVisible();
+    await expect(page.getByText('Rita Visita')).toBeVisible();
+    await expect(page.getByTestId('push-alerts')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Usuarios' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Visitantes en sitio' })).toHaveCount(0);
+
+    await page.goto('/admin/settings');
+    await expect(page).toHaveURL(/\/admin\/my-visits/);
+  } finally {
+    await ctx.close();
   }
 });
 

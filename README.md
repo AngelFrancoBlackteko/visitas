@@ -288,6 +288,14 @@ Secrets always come from env: `SMTP_PASSWORD`, `SMS_AUTH_TOKEN`. The `events[]` 
 
 Restart the container after editing `config/notifications.json` to apply (`docker compose restart visitas`). Once up, use Settings → Email / SMS to send a test message and verify delivery.
 
+## Roles
+
+- **host** — someone visitors come to see. Signs in to see only **My visitors** (who is waiting for them, who left today) and to turn on phone alerts. No access to anything else. `GET /api/visits/mine` returns their own visits without contact details.
+- **admin** — full admin UI; can also be a host.
+- **security** — Active visitors and Bans only; can force sign-outs; can't be a host.
+
+Admins create users under **Users** (new users default to *host*).
+
 ## Browser alerts on the host's phone (Web Push)
 
 The simplest way to tell a host their visitor arrived, with no third-party
@@ -503,7 +511,7 @@ Restart visitas after editing the config. Per-deployment notes:
 
 ### What an AD login does
 
-On first AD login, visitas creates a `users` row with `source='ad'`, `role='admin'`, no `password_hash`. Subsequent logins refresh `email` and `display_name` from the AD attributes. AD users **become hosts**: once they've logged in, they appear in the kiosk's host typeahead (`/api/hosts`).
+On first AD login, visitas creates a `users` row with `source='ad'`, `role='host'`, no `password_hash`. Hosts can receive visitors and alerts but can't administer anything; promote someone to admin from **Users** (the role is never overwritten on later logins). Subsequent logins refresh `email` and `display_name` from the AD attributes. AD users **become hosts**: once they've logged in, they appear in the kiosk's host typeahead (`/api/hosts`).
 
 > **First-time visibility**: an AD user must log in once before they show up in the host typeahead. For workshops with a small admin team this is fine — each member signs in once on their first day. For larger orgs you can periodically run a sync script that walks the AD group; we don't ship one in v0 (open an issue if it's important).
 
@@ -539,7 +547,7 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 - `GET /` — **public** — returns the kiosk field schema, read live from `config/visitor-form.json` on each call. Edit the JSON to change what the kiosk asks. (Admin UI editing lands in a later release; until then the file is authoritative.)
 
 ### Hosts (kiosk typeahead) — `/api/hosts`
-- `GET /` — **public, sanitized** — `{ hosts: [{ id, displayName }] }`. Filtered to active `role=admin` users (security users are not hosts). Used by the kiosk's host typeahead.
+- `GET /` — **public, sanitized** — `{ hosts: [{ id, displayName }] }`. Filtered to active `role=admin` or `role=host` users (security users are not hosts). Used by the kiosk's host typeahead.
 
 ### Visitor bans — `/api/bans` (admin + security)
 - `GET /` — list all bans (or `?status=active|inactive` to filter).
