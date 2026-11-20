@@ -487,7 +487,8 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 ### Visits — `/api/visits`
 - `POST /` — **public, no auth** — `{ visitorName, hostUserId, company?, email?, phone?, purpose?, fields? }`. Trust-the-LAN; the kiosk surface is unauthenticated.
 - `GET /active` — **sanitized** — list of currently on-site visits with `{ id, visitorName, hostName, signedInAt }`. Used by the wall view at `/active`. **Public by default**; admin/security session cookie required when `setting:wall_view.public` is `false`.
-- `POST /:id/sign-out` — visitor self-sign-out when called without auth (`signed_out_method='kiosk'`); admin/security force sign-out when called with a session cookie (`signed_out_method='admin'`, audit row records the actor).
+- `POST /sign-out/badge` — **public**, rate-limited — `{code}` (32-hex code from the badge QR) → visitor self-sign-out (`signed_out_method='kiosk'`, audit `via: 'badge_qr'`). Returns only `{id, visitorName, signedOutAt}`.
+- `POST /:id/sign-out` — admin/security force sign-out with a session cookie (`signed_out_method='admin'`, audit row records the actor). Without a session it is refused (403 `BADGE_SIGNOUT_REQUIRED`) unless the admin switched **Settings → Kiosk sign-out** to the legacy *name list* mode.
 - `GET /` — admin or security — full list with all fields, supports `?status=on_site|signed_out`.
 - `GET /:id` — admin or security — single visit with all fields.
 

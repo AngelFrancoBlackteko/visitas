@@ -6,7 +6,7 @@ import { getBranding } from './settings.js';
  * triggers window.print(). MDM is expected to pin the iPad's default
  * AirPrint printer to whatever the kiosk's defaultPrinterName documents.
  */
-export function renderBadge(visit) {
+export function renderBadge(visit, { signoutQrSvg = null, signoutCode = null } = {}) {
   const branding = getBranding();
   const today = new Date();
   const dateStr = today.toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' });
@@ -58,6 +58,9 @@ export function renderBadge(visit) {
     .photo { float: right; width: 28mm; height: 28mm; object-fit: cover; border: 1px solid #ddd; margin: 0 0 0 4mm; }
     .company { font-size: 11pt; color: #555; margin-top: 1mm; }
     .meta { font-size: 9pt; color: #444; }
+    .meta-row { display: flex; justify-content: space-between; align-items: flex-end; gap: 4mm; }
+    .signout-qr { text-align: center; font-size: 6pt; color: #888; }
+    .signout-qr svg { width: 18mm; height: 18mm; display: block; }
     .meta .label { display: inline-block; min-width: 16mm; color: #888; }
     .footer {
       display: flex;
@@ -107,10 +110,13 @@ export function renderBadge(visit) {
       <div class="visitor">${visitorName}</div>
       ${company ? `<div class="company">${company}</div>` : ''}
     </div>
-    <div class="meta">
-      <div><span class="label">Visiting:</span> ${hostName}</div>
-      <div><span class="label">Date:</span> ${dateStr} &middot; expires end of day</div>
-      ${kioskName ? `<div><span class="label">Kiosk:</span> ${kioskName}</div>` : ''}
+    <div class="meta-row">
+      <div class="meta">
+        <div><span class="label">Visiting:</span> ${hostName}</div>
+        <div><span class="label">Date:</span> ${dateStr} &middot; expires end of day</div>
+        ${kioskName ? `<div><span class="label">Kiosk:</span> ${kioskName}</div>` : ''}
+      </div>
+      ${signoutQrSvg ? `<div class="signout-qr" data-signout-code="${escapeHtml(signoutCode || '')}">${signoutQrSvg}<div>Scan to sign out</div></div>` : ''}
     </div>
     <div class="footer">
       <span>${appName}</span>

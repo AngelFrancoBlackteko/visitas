@@ -1,5 +1,6 @@
 import { describe, test, expect, beforeEach } from 'vitest';
 import { resetDb, createUser, agentFor, client, adminAgent, row, rows } from './helpers.js';
+import { setSetting } from '../src/services/settings.js';
 
 function seedHost(username = 'host1', displayName = 'Host One') {
   return createUser({ username, password: 'HostPass1234', displayName, role: 'admin' });
@@ -157,7 +158,8 @@ describe('GET /api/visits/active (public — wall view)', () => {
   test('excludes signed-out visits', async () => {
     const host = seedHost();
     const create = await client().post('/api/visits').send({ visitorName: 'Alice', hostUserId: host.id });
-    await client().post(`/api/visits/${create.body.visit.id}/sign-out`);
+    const a = await adminAgent();
+    await a.post(`/api/visits/${create.body.visit.id}/sign-out`);
     const res = await client().get('/api/visits/active');
     expect(res.body.visits).toHaveLength(0);
   });
@@ -217,16 +219,28 @@ describe('GET /api/visits/active — wall_view.public privacy gate', () => {
 describe('POST /api/visits/:id/sign-out', () => {
   beforeEach(resetDb);
 
-  test('public call records kiosk method', async () => {
+  test('anonymous call is refused in the default badge mode', async () => {
     const host = seedHost();
     const c = await client().post('/api/visits').send({ visitorName: 'Alice', hostUserId: host.id });
+    const res = await client().post(`/api/visits/${c.body.visit.id}/sign-out`);
+    expect(res.status).toBe(403);
+    expect(res.body.code).toBe('BADGE_SIGNOUT_REQUIRED');
+    expect(row('SELECT status FROM visits WHERE id = ?', c.body.visit.id).status).toBe('on_site');
+  });
+
+  test('list mode: public call records kiosk method and returns no contact data', async () => {
+    setSetting('kiosk.signout_mode', 'list');
+    const host = seedHost();
+    const c = await client().post('/api/visits').send({ visitorName: 'Alice', email: 'a@x.com', phone: '+15555550100', hostUserId: host.id });
     const id = c.body.visit.id;
 
     const res = await client().post(`/api/visits/${id}/sign-out`);
     expect(res.status).toBe(200);
-    expect(res.body.visit.status).toBe('signed_out');
-    expect(res.body.visit.signedOutMethod).toBe('kiosk');
-    expect(res.body.visit.signedOutBy).toBeNull();
+    expect(res.body.visit).toEqual({ id, visitorName: 'Alice', signedOutAt: expect.any(String) });
+    const v = row('SELECT status, signed_out_method, signed_out_by_user_id FROM visits WHERE id = ?', id);
+    expect(v.status).toBe('signed_out');
+    expect(v.signed_out_method).toBe('kiosk');
+    expect(v.signed_out_by_user_id).toBeNull();
 
     const audits = rows('SELECT * FROM audit_log WHERE subject_id = ? ORDER BY id', id);
     expect(audits.map(a => a.action)).toEqual(['visit_signed_in', 'visit_signed_out']);
@@ -260,6 +274,7 @@ describe('POST /api/visits/:id/sign-out', () => {
   });
 
   test('refuses double sign-out', async () => {
+    setSetting('kiosk.signout_mode', 'list');
     const host = seedHost();
     const c = await client().post('/api/visits').send({ visitorName: 'Alice', hostUserId: host.id });
     const id = c.body.visit.id;
@@ -269,7 +284,8 @@ describe('POST /api/visits/:id/sign-out', () => {
   });
 
   test('404 on unknown id', async () => {
-    const res = await client().post('/api/visits/99999/sign-out');
+    const a = await adminAgent();
+    const res = await a.post('/api/visits/99999/sign-out');
     expect(res.status).toBe(404);
   });
 });

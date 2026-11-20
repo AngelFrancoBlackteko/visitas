@@ -125,10 +125,12 @@ export function createVisit({
   // can't be enumerated by walking sequential ids. Match the format the
   // backfill in 008_public_token.sql produced.
   const publicToken = randomBytes(32).toString('hex');
+  // Separate secret for badge-QR sign-out (see 011_signout_code.sql).
+  const signoutCode = randomBytes(16).toString('hex');
 
   const info = db.prepare(`
-    INSERT INTO visits (visitor_name, company, email, phone, host_user_id, purpose, fields_json, kiosk_id, visitor_id, public_token)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO visits (visitor_name, company, email, phone, host_user_id, purpose, fields_json, kiosk_id, visitor_id, public_token, signout_code)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).run(
     visitorName,
     company,
@@ -140,6 +142,7 @@ export function createVisit({
     kioskId,
     visitorRow?.id ?? null,
     publicToken,
+    signoutCode,
   );
   const visitId = Number(info.lastInsertRowid);
 
@@ -211,7 +214,7 @@ export function createVisit({
   return visit;
 }
 
-export function signOutVisit({ visitId, byUserId = null, method }) {
+export function signOutVisit({ visitId, byUserId = null, method, via = null }) {
   const v = db.prepare('SELECT id, status FROM visits WHERE id = ?').get(visitId);
   if (!v) throw httpError(404, 'visit not found');
   if (v.status !== 'on_site') throw httpError(409, 'visit already signed out');
@@ -230,7 +233,7 @@ export function signOutVisit({ visitId, byUserId = null, method }) {
     action: method === 'admin' ? 'visit_force_signed_out' : 'visit_signed_out',
     subjectType: 'visit',
     subjectId: visitId,
-    details: { method },
+    details: via ? { method, via } : { method },
   });
   const visit = getById(visitId);
   let actor = null;
@@ -247,6 +250,21 @@ export function getById(visitId) {
   const v = rowToVisit(r);
   v.acknowledgments = loadAcknowledgmentsForVisit(visitId);
   return v;
+}
+
+/**
+ * Sign-out code printed on the badge QR. Never part of the visit JSON the
+ * API returns; only the badge renderer and the code sign-out route use it.
+ */
+export function getSignoutCode(visitId) {
+  return db.prepare('SELECT signout_code FROM visits WHERE id = ?').get(visitId)?.signout_code ?? null;
+}
+
+/** Visitor self sign-out by scanning the badge QR. */
+export function signOutByCode(code) {
+  const r = db.prepare('SELECT id FROM visits WHERE signout_code = ?').get(code);
+  if (!r) throw httpError(404, 'badge not recognised');
+  return signOutVisit({ visitId: r.id, byUserId: null, method: 'kiosk', via: 'badge_qr' });
 }
 
 /** Look up by the public token. Used by the unauth'd badge + photo routes. */

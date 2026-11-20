@@ -72,8 +72,11 @@ test('visitor: full flow form → safety → NDA + signature → thanks → badg
   await expect(badgePage.locator('text=Bob Visitor').first()).toBeVisible();
 });
 
-test('visitor: signs in (with safety + NDA) then signs out at /kiosk/signout', async ({ page }) => {
+test('visitor: signs in (with safety + NDA) then signs out at /kiosk/signout by scanning the badge', async ({ page }) => {
   await page.addInitScript(() => { window.open = () => null; });
+
+  // Capture the new visit so we can read the QR payload off its badge.
+  const createdP = page.waitForResponse(r => r.url().endsWith('/api/visits') && r.request().method() === 'POST');
 
   await page.goto('/kiosk/default');
   await page.getByLabel(/Your name/).fill('Going-Home Greta');
@@ -97,16 +100,50 @@ test('visitor: signs in (with safety + NDA) then signs out at /kiosk/signout', a
   await page.getByRole('button', { name: /I agree and sign/ }).click();
 
   await expect(page.getByRole('heading', { name: /Thanks, Going-Home/ })).toBeVisible();
+  // Read the create response before navigating away (Playwright drops it after).
+  const { visit } = await (await createdP).json();
 
   // Wall view shows them on site.
   await page.goto('/active');
   await expect(page.getByText('Going-Home Greta')).toBeVisible();
 
-  // Sign out at the kiosk.
+  // The badge carries a sign-out QR; read the code it encodes.
+  const badge = await page.request.get(`/api/visits/badge/${visit.publicToken}`);
+  const code = (await badge.text()).match(/data-signout-code="([0-9a-f]{32})"/)[1];
+
+  // Default kiosk mode: no name list, only the badge scanner.
   await page.goto('/kiosk/signout');
-  await page.getByRole('button', { name: /Going-Home Greta/ }).click();
+  await expect(page.getByRole('button', { name: /Going-Home Greta/ })).toHaveCount(0);
+
+  // A USB/Bluetooth scanner "types" the QR URL and presses Enter.
+  await page.getByLabel('Badge code').fill(`http://kiosk.example/kiosk/signout/${code}`);
+  await page.getByLabel('Badge code').press('Enter');
   await expect(page.getByRole('heading', { name: /Goodbye, Going-Home/ })).toBeVisible();
 
   await page.goto('/active');
   await expect(page.getByText('Going-Home Greta')).not.toBeVisible();
+});
+
+test('visitor: phone camera scan of the badge QR opens a sign-out page', async ({ page }) => {
+  const hosts = await (await page.request.get('/api/hosts')).json();
+  const host = hosts.hosts.find(h => h.displayName === 'Jane Host');
+  // 1x1 transparent PNG stands in for the drawn NDA signature.
+  const png = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
+  const created = await page.request.post('/api/visits', {
+    data: {
+      visitorName: 'Phone Paco', hostUserId: host.id,
+      acknowledgments: [
+        { kind: 'safety' },
+        { kind: 'nda', signedName: 'Phone Paco', signaturePngBase64: png },
+      ],
+    },
+  });
+  expect(created.status()).toBe(201);
+  const { visit } = await created.json();
+  const badge = await page.request.get(`/api/visits/badge/${visit.publicToken}`);
+  const code = (await badge.text()).match(/data-signout-code="([0-9a-f]{32})"/)[1];
+
+  await page.goto(`/kiosk/signout/${code}`);
+  await page.getByRole('button', { name: 'Sign me out' }).click();
+  await expect(page.getByRole('heading', { name: /Goodbye, Phone/ })).toBeVisible();
 });
