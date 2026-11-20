@@ -43,6 +43,8 @@ export default defineConfig({
       DATA_DIR: E2E_DATA_DIR,
       JWT_SECRET: 'e2e-secret-not-for-production-e2e-secret-not-for-production',
       LOG_LEVEL: 'error',
+      // Most specs assert English copy; e2e/spanish.spec.js switches to Spanish.
+      DEFAULT_LANGUAGE: 'en',
     },
   },
 });

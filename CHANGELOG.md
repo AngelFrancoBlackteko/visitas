@@ -4,6 +4,39 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.10.0] — 2026-11-20
+
+Spanish (Mexico) interface, with English still available.
+
+### Added
+- **Site language setting** (Settings → Language): `es` (default) or `en`.
+  One choice covers the kiosk, badge, sign-out screen, wall view, admin
+  panel, and the emails/SMS the server sends. Public via
+  `GET /api/settings/branding` (`language`), admin-only
+  `PUT /api/settings/language`. `DEFAULT_LANGUAGE` env sets it until an
+  admin saves one.
+- Translation files: `web/src/i18n/{es,en}.js` and
+  `server/src/i18n/messages.js`, no new dependency. A test checks both
+  languages have the same keys and placeholders.
+- `config/visitor-form.json` labels, placeholders and options accept
+  `{ "es": ..., "en": ... }`; the sample form ships both.
+- Spanish templates for the default NDA and safety briefing in Admin →
+  Documents.
+
+### Changed
+- Kiosk errors no longer show raw server text: a ban, a rate limit or any
+  other failure shows a fixed, translated message.
+- Dates and times on the badge and admin pages follow the site language
+  (`es-MX` / `en-US`).
+- The signed-NDA copy email now opens with a greeting line.
+
+### Not translated yet
+- API error messages shown in admin forms (e.g. "invalid request") stay in
+  English.
+- Data already in the database keeps its text: the seeded kiosk name
+  "Reception" (rename it under Kiosks) and the bootstrap user
+  "Administrator".
+
 ## [1.9.0] — 2026-11-20
 
 Kiosk self sign-out by badge QR, so nobody can sign out someone else.

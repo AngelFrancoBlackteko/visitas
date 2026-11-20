@@ -3,6 +3,7 @@ import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { emailEnabled } from './email.js';
 import { createPending, markSent, markFailed } from '../services/notificationsLog.js';
+import { t, getLanguage } from '../i18n/index.js';
 
 let testOverride = null;
 
@@ -28,7 +29,7 @@ export async function sendInvitationEmail({ invitation, branding }) {
     const appName = branding?.appName || 'visitas.world';
     return testOverride({
       to: invitation.email,
-      subject: `[${appName}] Invitation to visit — ${invitation.host.displayName || invitation.host.username}`,
+      subject: t('invite.subject', { app: appName, host: invitation.host.displayName || invitation.host.username }),
       text: renderText({ invitation, inviteUrl, appName }),
       html: '<test/>',
       inviteUrl,
@@ -48,7 +49,7 @@ export async function sendInvitationEmail({ invitation, branding }) {
 
   const cid = 'visitas-invite-qr@visitas';
   const appName = branding?.appName || 'visitas.world';
-  const subject = `[${appName}] Invitation to visit — ${invitation.host.displayName || invitation.host.username}`;
+  const subject = t('invite.subject', { app: appName, host: invitation.host.displayName || invitation.host.username });
   const text = renderText({ invitation, inviteUrl, appName });
   const html = renderHtml({ invitation, inviteUrl, appName, hasQr: !!qrPng, cid });
 
@@ -90,16 +91,16 @@ export function setInvitationSenderForTests(fn) {
 function renderText({ invitation, inviteUrl, appName }) {
   const hostName = invitation.host.displayName || invitation.host.username;
   const lines = [
-    `You're invited to visit ${appName}.`,
+    t('invite.invited', { app: appName }),
     '',
-    `Host: ${hostName}`,
-    invitation.expectedAt ? `Expected: ${invitation.expectedAt}` : null,
-    invitation.purpose ? `Purpose: ${invitation.purpose}` : null,
+    `${t('invite.host')} ${hostName}`,
+    invitation.expectedAt ? `${t('invite.expected')} ${invitation.expectedAt}` : null,
+    invitation.purpose ? `${t('invite.purpose')} ${invitation.purpose}` : null,
     '',
-    'On arrival, scan the QR code in this email or open this link on the iPad at reception:',
+    t('invite.onArrivalText'),
     inviteUrl,
     '',
-    `This invitation expires ${invitation.expiresAt}.`,
+    t('invite.expires', { date: invitation.expiresAt }),
   ].filter(l => l !== null);
   return lines.join('\n');
 }
@@ -109,19 +110,19 @@ function renderHtml({ invitation, inviteUrl, appName, hasQr, cid }) {
   const expected = invitation.expectedAt ? escape(invitation.expectedAt) : null;
   const purpose = invitation.purpose ? escape(invitation.purpose) : null;
   return `<!doctype html>
-<html><head><meta charset="utf-8" /></head>
+<html lang="${getLanguage()}"><head><meta charset="utf-8" /></head>
 <body style="font-family: -apple-system, system-ui, sans-serif; color: #111; max-width: 640px; margin: 0 auto; padding: 24px;">
-  <p>Hi ${escape(invitation.visitorName)},</p>
-  <p>You&rsquo;re invited to visit ${escape(appName)}.</p>
+  <p>${escape(t('invite.hi', { name: invitation.visitorName }))}</p>
+  <p>${escape(t('invite.invited', { app: appName }))}</p>
   <table style="border-collapse: collapse; margin: 16px 0;">
-    <tr><td style="padding: 4px 12px 4px 0; color: #666;">Host:</td><td style="padding: 4px 0;">${hostName}</td></tr>
-    ${expected ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Expected:</td><td style="padding: 4px 0;">${expected}</td></tr>` : ''}
-    ${purpose ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">Purpose:</td><td style="padding: 4px 0;">${purpose}</td></tr>` : ''}
+    <tr><td style="padding: 4px 12px 4px 0; color: #666;">${escape(t('invite.host'))}</td><td style="padding: 4px 0;">${hostName}</td></tr>
+    ${expected ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">${escape(t('invite.expected'))}</td><td style="padding: 4px 0;">${expected}</td></tr>` : ''}
+    ${purpose ? `<tr><td style="padding: 4px 12px 4px 0; color: #666;">${escape(t('invite.purpose'))}</td><td style="padding: 4px 0;">${purpose}</td></tr>` : ''}
   </table>
-  <p>On arrival, scan the QR code below with your phone&rsquo;s camera, or open the link on the iPad at reception:</p>
-  ${hasQr ? `<p style="margin: 16px 0;"><img src="cid:${cid}" alt="QR code for visitor sign-in" style="border: 1px solid #eee; padding: 8px; background: #fff;" /></p>` : ''}
-  <p><a href="${escape(inviteUrl)}" style="display: inline-block; background: #5b9dff; color: #0e1116; padding: 10px 18px; border-radius: 8px; font-weight: 600; text-decoration: none;">Open kiosk &rarr;</a></p>
-  <p style="color: #888; font-size: 12px; margin-top: 24px;">This invitation expires ${escape(invitation.expiresAt)}. — ${escape(appName)}</p>
+  <p>${escape(t('invite.onArrivalHtml'))}</p>
+  ${hasQr ? `<p style="margin: 16px 0;"><img src="cid:${cid}" alt="${escape(t('invite.qrAlt'))}" style="border: 1px solid #eee; padding: 8px; background: #fff;" /></p>` : ''}
+  <p><a href="${escape(inviteUrl)}" style="display: inline-block; background: #5b9dff; color: #0e1116; padding: 10px 18px; border-radius: 8px; font-weight: 600; text-decoration: none;">${escape(t('invite.openKiosk'))}</a></p>
+  <p style="color: #888; font-size: 12px; margin-top: 24px;">${escape(t('invite.expires', { date: invitation.expiresAt }))} — ${escape(appName)}</p>
 </body></html>`;
 }
 

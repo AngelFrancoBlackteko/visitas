@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../i18n/index.jsx';
 
 /**
  * Visitor photo capture via the iPad's front camera. Renders a live video
@@ -17,6 +18,7 @@ export default function PhotoCapture({ onChange }) {
   const [photo, setPhoto] = useState(null);
   const [err, setErr] = useState(null);
   const [starting, setStarting] = useState(true);
+  const t = useT();
 
   useEffect(() => {
     let cancelled = false;
@@ -37,7 +39,8 @@ export default function PhotoCapture({ onChange }) {
         }
         setStarting(false);
       } catch (e) {
-        setErr(e?.message || 'Camera access was denied. Please ask a member of staff.');
+        // Browser error text is technical and in English; show our own.
+        setErr(t('photo.denied'));
         setStarting(false);
       }
     })();
@@ -91,20 +94,20 @@ export default function PhotoCapture({ onChange }) {
             style={{ transform: 'scaleX(-1)' }} /* mirror the preview */
           />
         )}
-        {photo && <img src={photo} alt="Captured visitor" className="photo-captured" />}
+        {photo && <img src={photo} alt={t('photo.captured')} className="photo-captured" />}
         <canvas ref={canvasRef} style={{ display: 'none' }} />
       </div>
 
       <div className="photo-actions">
         {!photo && (
           <button type="button" className="kiosk-cta" onClick={takePhoto} disabled={starting}>
-            {starting ? 'Starting camera…' : 'Take photo'}
+            {starting ? t('photo.starting') : t('photo.take')}
           </button>
         )}
         {photo && (
           <>
-            <button type="button" className="secondary" onClick={retake}>Retake</button>
-            <button type="button" className="kiosk-cta" onClick={confirm}>Use this photo</button>
+            <button type="button" className="secondary" onClick={retake}>{t('photo.retake')}</button>
+            <button type="button" className="kiosk-cta" onClick={confirm}>{t('photo.use')}</button>
           </>
         )}
       </div>

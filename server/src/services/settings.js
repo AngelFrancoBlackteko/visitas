@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { db } from '../db/index.js';
 import { config } from '../config.js';
+import { getLanguage } from '../i18n/index.js';
 
 const DEFAULTS = {
   'branding.app_name': 'visitas.world',
@@ -52,5 +53,7 @@ export function getBranding() {
     appName: getSetting('branding.app_name') ?? 'visitas.world',
     logoUrl: getSetting('branding.logo_path'),
     version: readVersion(),
+    // Public on purpose: the kiosk and login screens render in this language.
+    language: getLanguage(),
   };
 }

@@ -50,6 +50,9 @@ test('visitor: full flow form → safety → NDA + signature → thanks → badg
   await page.locator('.doc-body').first().evaluate(el => { el.scrollTop = el.scrollHeight; });
   // Draw a stroke on the signature pad.
   const pad = page.locator('canvas.signature-pad');
+  // The pad only accepts ink once the doc is scrolled to the end; wait for
+  // that instead of racing the scroll handler.
+  await expect(pad).not.toHaveClass(/disabled/);
   const padBox = await pad.boundingBox();
   await page.mouse.move(padBox.x + 20, padBox.y + 20);
   await page.mouse.down();
@@ -92,6 +95,9 @@ test('visitor: signs in (with safety + NDA) then signs out at /kiosk/signout by 
   // NDA
   await page.locator('.doc-body').first().evaluate(el => { el.scrollTop = el.scrollHeight; });
   const pad = page.locator('canvas.signature-pad');
+  // The pad only accepts ink once the doc is scrolled to the end; wait for
+  // that instead of racing the scroll handler.
+  await expect(pad).not.toHaveClass(/disabled/);
   const padBox = await pad.boundingBox();
   await page.mouse.move(padBox.x + 20, padBox.y + 20);
   await page.mouse.down();

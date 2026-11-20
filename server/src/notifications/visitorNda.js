@@ -4,6 +4,7 @@ import nodemailer from 'nodemailer';
 import { config } from '../config.js';
 import { logger } from '../logger.js';
 import { emailEnabled } from './email.js';
+import { t, getLanguage } from '../i18n/index.js';
 
 /**
  * Email a copy of the signed NDA to the visitor.
@@ -20,14 +21,14 @@ export async function sendVisitorNdaCopy({ visit, document, signaturePath, signe
   const sigAbs = signaturePath ? resolve(config.dataDir, signaturePath) : null;
   const hasSig = sigAbs && existsSync(sigAbs);
 
-  const subject = `[visitas.world] Your signed NDA — ${escape(document.title)}`;
+  const subject = t('nda.subject', { title: escape(document.title) });
   const text = [
-    `${visit.visitorName},`,
+    t('invite.hi', { name: visit.visitorName }),
     '',
-    `This is a copy of the non-disclosure agreement you signed at the kiosk.`,
+    t('nda.intro'),
     '',
-    `Document: ${document.title} (v${document.version})`,
-    `Signed: ${signedAt}`,
+    t('nda.document', { title: document.title, version: document.version }),
+    t('nda.signed', { date: signedAt }),
     '',
     document.body,
     '',
@@ -85,17 +86,17 @@ function renderHtml({ visit, document, signedAt, hasSig, sigCid }) {
     .join('');
 
   return `<!doctype html>
-<html><head><meta charset="utf-8" /></head>
+<html lang="${getLanguage()}"><head><meta charset="utf-8" /></head>
 <body style="font-family: -apple-system, system-ui, sans-serif; color: #111; max-width: 640px; margin: 0 auto; padding: 24px;">
-  <p>Hi ${escape(visit.visitorName)},</p>
-  <p>Below is a copy of the non-disclosure agreement you signed at the kiosk. Keep this email for your records.</p>
+  <p>${escape(t('invite.hi', { name: visit.visitorName }))}</p>
+  <p>${escape(t('nda.introHtml'))}</p>
   <hr style="border: none; border-top: 1px solid #ddd; margin: 24px 0;" />
   <h1 style="margin: 0 0 8px; font-size: 18px;">${escape(document.title)}</h1>
-  <p style="color: #666; font-size: 13px; margin: 0 0 16px;">Version ${document.version} &middot; signed ${escape(signedAt)}</p>
+  <p style="color: #666; font-size: 13px; margin: 0 0 16px;">${escape(t('nda.versionSigned', { version: document.version, date: signedAt }))}</p>
   ${body}
   <hr style="border: none; border-top: 1px solid #ddd; margin: 24px 0;" />
-  <p><strong>Signed by:</strong> ${escape(visit.visitorName)}</p>
-  ${hasSig ? `<p><img src="cid:${sigCid}" alt="signature" style="max-width: 320px; border: 1px solid #eee; padding: 8px; background: #fff;" /></p>` : ''}
+  <p><strong>${escape(t('nda.signedBy'))}</strong> ${escape(visit.visitorName)}</p>
+  ${hasSig ? `<p><img src="cid:${sigCid}" alt="${escape(t('nda.signatureAlt'))}" style="max-width: 320px; border: 1px solid #eee; padding: 8px; background: #fff;" /></p>` : ''}
   <p style="color: #888; font-size: 12px; margin-top: 24px;">— visitas.world</p>
 </body></html>`;
 }

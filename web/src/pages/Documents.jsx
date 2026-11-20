@@ -1,24 +1,28 @@
 import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api.js';
+import { useT } from '../i18n/index.jsx';
 
 export default function Documents() {
+  const t = useT();
   return (
     <>
-      <h1>Documents</h1>
+      <h1>{t('docs.title')}</h1>
       <p className="muted">
-        NDA + safety briefing presented at the kiosk. Each save bumps the version. Visitors must
-        scroll to the bottom and (for the NDA) sign with their finger before the kiosk lets them
-        complete sign-in. To stop showing a document, click <strong>Disable</strong>.
+        {t('docs.intro1')}<strong>{t('docs.intro2')}</strong>{t('docs.intro3')}
       </p>
-      <DocumentEditor kind="safety" defaultTitle="Workshop safety briefing" defaultBody="Please familiarise yourself with our muster point at the back fire exit. In the event of an alarm, leave the building via the nearest marked exit and gather at the muster point until cleared by reception." />
-      <DocumentEditor kind="nda" defaultTitle="Visitor non-disclosure agreement" defaultBody={`By signing below I acknowledge that any information I see, hear, or learn during my visit is confidential and the property of the workshop. I will not disclose, reproduce, or use any such information for any purpose outside of my visit, and will treat all observations as proprietary.`} />
+      {/* Defaults are only a starting template in the site language; once
+          saved, the document is shown exactly as written. */}
+      <DocumentEditor kind="safety" defaultTitle={t('docs.safetyDefaultTitle')} defaultBody={t('docs.safetyDefaultBody')} />
+      <DocumentEditor kind="nda" defaultTitle={t('docs.ndaDefaultTitle')} defaultBody={t('docs.ndaDefaultBody')} />
     </>
   );
 }
 
 function DocumentEditor({ kind, defaultTitle, defaultBody }) {
   const qc = useQueryClient();
+  const t = useT();
+  const kindLabel = kind === 'nda' ? t('docs.nda') : t('docs.safety');
   const allQ = useQuery({
     queryKey: ['documents', kind],
     queryFn: () => api.get(`/api/documents?kind=${kind}`),
@@ -46,45 +50,45 @@ function DocumentEditor({ kind, defaultTitle, defaultBody }) {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['documents', kind] }); qc.invalidateQueries({ queryKey: ['documents-active'] }); },
   });
 
-  if (allQ.isLoading) return <div className="panel"><p className="muted">Loading {kind}…</p></div>;
+  if (allQ.isLoading) return <div className="panel"><p className="muted">{t('docs.loading', { kind: kindLabel })}</p></div>;
 
   return (
     <div className="panel">
       <div className="row between">
-        <h2 style={{ margin: 0 }}>{kind === 'nda' ? 'NDA' : 'Safety briefing'}</h2>
+        <h2 style={{ margin: 0 }}>{kindLabel}</h2>
         <div className="muted" style={{ fontSize: 13 }}>
-          {active ? `Active: v${active.version}` : 'Not yet enabled'}
-          {docs.length > 0 && ` · ${docs.length} version${docs.length === 1 ? '' : 's'} on record`}
+          {active ? t('docs.activeVersion', { version: active.version }) : t('docs.notEnabled')}
+          {docs.length > 0 && t(docs.length === 1 ? 'docs.versionsOne' : 'docs.versionsMany', { n: docs.length })}
         </div>
       </div>
 
-      <label style={{ marginTop: 16 }}>Title</label>
+      <label style={{ marginTop: 16 }}>{t('docs.docTitle')}</label>
       <input value={title} onChange={e => setTitle(e.target.value)} maxLength={256} />
 
-      <label>Body</label>
-      <textarea value={body} onChange={e => setBody(e.target.value)} rows={10} placeholder="Write the full text here. Visitors will see this and must scroll to the bottom before they can acknowledge." />
+      <label>{t('docs.body')}</label>
+      <textarea value={body} onChange={e => setBody(e.target.value)} rows={10} placeholder={t('docs.bodyPlaceholder')} />
 
       {err && <div className="error">{err}</div>}
 
       <div className="row" style={{ marginTop: 16 }}>
         <button onClick={() => save.mutate()} disabled={save.isPending || !title || !body}>
-          {save.isPending ? 'Saving…' : (active ? 'Save (bump version)' : 'Save & enable')}
+          {save.isPending ? t('common.saving') : (active ? t('docs.saveBump') : t('docs.saveEnable'))}
         </button>
         {active && (
           <button className="danger" onClick={() => disable.mutate()} disabled={disable.isPending}>
-            {disable.isPending ? 'Disabling…' : 'Disable'}
+            {disable.isPending ? t('docs.disabling') : t('docs.disable')}
           </button>
         )}
       </div>
 
       {docs.length > 1 && (
         <details style={{ marginTop: 16 }}>
-          <summary className="muted" style={{ cursor: 'pointer' }}>Version history ({docs.length})</summary>
+          <summary className="muted" style={{ cursor: 'pointer' }}>{t('docs.history', { n: docs.length })}</summary>
           <ul style={{ marginTop: 8 }}>
             {docs.map(d => (
               <li key={d.id} style={{ marginBottom: 4 }}>
                 v{d.version}
-                {d.active && <span className="badge muted" style={{ marginLeft: 8 }}>active</span>}
+                {d.active && <span className="badge muted" style={{ marginLeft: 8 }}>{t('common.active')}</span>}
                 <span className="muted" style={{ marginLeft: 8 }}>{d.createdAt}</span>
               </li>
             ))}

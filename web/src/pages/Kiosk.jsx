@@ -5,6 +5,7 @@ import { useBranding } from '../branding.jsx';
 import { api } from '../api.js';
 import SignaturePad from '../components/SignaturePad.jsx';
 import PhotoCapture from '../components/PhotoCapture.jsx';
+import { useT } from '../i18n/index.jsx';
 
 const STANDARD_KEYS = new Set(['name', 'company', 'email', 'phone', 'host', 'purpose']);
 
@@ -13,6 +14,7 @@ export default function Kiosk() {
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get('invite');
   const { appName, logoUrl } = useBranding();
+  const t = useT();
   const [stage, setStage] = useState('form');
   const [pending, setPending] = useState(null);
   const [acks, setAcks] = useState([]);
@@ -42,14 +44,14 @@ export default function Kiosk() {
   });
 
   if (kioskQ.isLoading || docsQ.isLoading || inviteQ.isLoading || photoSettingQ.isLoading) {
-    return <div className="kiosk-wrap"><div className="kiosk-card"><p className="muted">Loading…</p></div></div>;
+    return <div className="kiosk-wrap"><div className="kiosk-card"><p className="muted">{t('common.loading')}</p></div></div>;
   }
   if (kioskQ.error) {
     return (
       <div className="kiosk-wrap">
         <div className="kiosk-card">
-          <h1>Unknown kiosk</h1>
-          <p>The kiosk identifier <code>{slug}</code> isn&rsquo;t configured. Ask an admin to set it up under Admin → Kiosks.</p>
+          <h1>{t('kiosk.unknownTitle')}</h1>
+          <p>{t('kiosk.unknownBody1')}<code>{slug}</code>{t('kiosk.unknownBody2')}</p>
         </div>
       </div>
     );
@@ -59,9 +61,9 @@ export default function Kiosk() {
     return (
       <div className="kiosk-wrap">
         <div className="kiosk-card">
-          <h1>This invitation can&rsquo;t be used.</h1>
-          <p className="muted">It may have expired, already been claimed, or been cancelled. Please sign in normally below.</p>
-          <p><a href={`/kiosk/${slug}`}>Continue to sign-in →</a></p>
+          <h1>{t('kiosk.inviteInvalidTitle')}</h1>
+          <p className="muted">{t('kiosk.inviteInvalidBody')}</p>
+          <p><a href={`/kiosk/${slug}`}>{t('kiosk.inviteContinue')}</a></p>
         </div>
       </div>
     );
@@ -135,7 +137,13 @@ export default function Kiosk() {
       setStage('thanks');
       window.open(`/api/visits/badge/${r.visit.publicToken}`, '_blank', 'noopener=yes,width=480,height=320');
     } catch (e) {
-      setSubmitErr(e.data?.error || e.message);
+      // Visitor-facing: never show raw server text (a ban refusal must stay
+      // generic, and technical messages are in English).
+      setSubmitErr(
+        e.status === 403 ? t('kiosk.signinRefused')
+          : e.status === 429 ? t('common.tooManyRequests')
+          : t('kiosk.submitFailed'),
+      );
       setStage('form');
     }
   };
@@ -154,7 +162,7 @@ export default function Kiosk() {
         <div className="kiosk-loc muted">{kiosk?.name}</div>
         {stagesNeeded.length > 1 && stage !== 'thanks' && (
           <div className="kiosk-stepper muted">
-            Step {stagesNeeded.indexOf(stage) + 1} of {stagesNeeded.length}
+            {t('kiosk.step', { n: stagesNeeded.indexOf(stage) + 1, total: stagesNeeded.length })}
           </div>
         )}
       </div>
@@ -163,7 +171,7 @@ export default function Kiosk() {
         <PhotoStage onDone={onPhotoDone} />
       )}
       {stage === 'safety' && safetyDoc && (
-        <DocumentAck doc={safetyDoc} confirmLabel="I have read this — continue" onDone={onSafetyDone} />
+        <DocumentAck doc={safetyDoc} confirmLabel={t('kiosk.safetyConfirm')} onDone={onSafetyDone} />
       )}
       {stage === 'nda' && ndaDoc && (
         <NdaSign doc={ndaDoc} visitorName={pending?.visitorName} onDone={onNdaDone} />
@@ -187,12 +195,13 @@ function SignInForm({ kioskSlug, initialErr, invitation, onDone }) {
   const [err, setErr] = useState(initialErr);
   const [lookup, setLookup] = useState(null);
   const [lookingUp, setLookingUp] = useState(false);
+  const t = useT();
 
   if (formQ.isLoading || hostsQ.isLoading) {
-    return <div className="kiosk-card"><p className="muted">Loading…</p></div>;
+    return <div className="kiosk-card"><p className="muted">{t('common.loading')}</p></div>;
   }
   if (formQ.error || hostsQ.error) {
-    return <div className="kiosk-card"><p className="error">Could not load the kiosk. Please find a member of staff.</p></div>;
+    return <div className="kiosk-card"><p className="error">{t('kiosk.loadFailed')}</p></div>;
   }
 
   const fields = formQ.data?.fields ?? [];
@@ -228,9 +237,9 @@ function SignInForm({ kioskSlug, initialErr, invitation, onDone }) {
     for (const f of fields) {
       if (!f.required) continue;
       if (f.type === 'host-typeahead') {
-        if (!hostId && !invitation) { setErr(`Please select your host.`); return; }
+        if (!hostId && !invitation) { setErr(t('kiosk.selectHost')); return; }
       } else if (!values[f.key] || String(values[f.key]).trim() === '') {
-        setErr(`Please fill in: ${f.label}`); return;
+        setErr(t('kiosk.fillIn', { field: f.label })); return;
       }
     }
 
@@ -253,22 +262,24 @@ function SignInForm({ kioskSlug, initialErr, invitation, onDone }) {
 
   return (
     <form className="kiosk-card kiosk-form" onSubmit={onSubmit}>
-      <h1>Welcome{invitation ? ', ' + (invitation.visitorName?.split(' ')[0] || 'visitor') : ''}.</h1>
+      <h1>{invitation
+        ? t('kiosk.welcomeName', { name: invitation.visitorName?.split(' ')[0] || t('common.visitor') })
+        : t('kiosk.welcome')}</h1>
       {invitation && (
         <div className="kiosk-welcomeback">
-          <strong>You were expected.</strong> {invitation.host?.displayName} is your host today
-          {invitation.expectedAt ? <>, expected at {invitation.expectedAt}</> : null}. Confirm your details below.
+          <strong>{t('kiosk.expected')}</strong> {t('kiosk.expectedHost', { host: invitation.host?.displayName })}
+          {invitation.expectedAt ? t('kiosk.expectedAt', { time: invitation.expectedAt }) : null}{t('kiosk.expectedConfirm')}
         </div>
       )}
-      {!invitation && <p>Sign in for your visit. We&rsquo;ll let your host know you&rsquo;re here.</p>}
+      {!invitation && <p>{t('kiosk.intro')}</p>}
 
       {lookup && (
         <div className="kiosk-welcomeback">
-          <strong>Welcome back, {lookup.name?.split(' ')[0] || 'visitor'}.</strong> Your name is pre-filled below — please confirm the rest of your details.
-          {lookup.ndaCacheFresh && <div style={{ marginTop: 4, fontSize: 13 }}>Your NDA from a previous visit is still on file (v{lookup.ndaCacheVersion}); we won&rsquo;t ask you to re-sign today.</div>}
+          <strong>{t('kiosk.welcomeBack', { name: lookup.name?.split(' ')[0] || t('common.visitor') })}</strong>{t('kiosk.welcomeBackBody')}
+          {lookup.ndaCacheFresh && <div style={{ marginTop: 4, fontSize: 13 }}>{t('kiosk.ndaOnFile', { version: lookup.ndaCacheVersion })}</div>}
         </div>
       )}
-      {lookingUp && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>Checking for a previous visit…</div>}
+      {lookingUp && <div className="muted" style={{ fontSize: 13, marginTop: 8 }}>{t('kiosk.checking')}</div>}
 
       {fields.map(f => {
         if (f.type === 'host-typeahead') {
@@ -279,7 +290,7 @@ function SignInForm({ kioskSlug, initialErr, invitation, onDone }) {
                 <label>{f.label}</label>
                 <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between', background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10 }}>
                   <span>{invitation.host?.displayName}</span>
-                  <span className="badge muted">pre-booked</span>
+                  <span className="badge muted">{t('kiosk.preBooked')}</span>
                 </div>
               </div>
             );
@@ -305,16 +316,17 @@ function SignInForm({ kioskSlug, initialErr, invitation, onDone }) {
 
       {err && <div className="error" role="alert">{err}</div>}
       <div style={{ marginTop: 24 }}>
-        <button type="submit" className="kiosk-cta">Continue</button>
+        <button type="submit" className="kiosk-cta">{t('kiosk.continue')}</button>
       </div>
       <div style={{ marginTop: 16, fontSize: 14 }}>
-        <Link to="/kiosk/signout" className="muted">Already signed in? Sign out →</Link>
+        <Link to="/kiosk/signout" className="muted">{t('kiosk.alreadySignedIn')}</Link>
       </div>
     </form>
   );
 }
 
 function FieldInput({ field, value, onChange, onBlur }) {
+  const t = useT();
   const id = `kf-${field.key}`;
   const common = {
     id, value,
@@ -331,7 +343,7 @@ function FieldInput({ field, value, onChange, onBlur }) {
         : field.type === 'select'
           ? (
             <select {...common}>
-              <option value="">{field.placeholder ?? 'Choose one…'}</option>
+              <option value="">{field.placeholder ?? t('kiosk.chooseOne')}</option>
               {(field.options ?? []).map(opt => <option key={opt} value={opt}>{opt}</option>)}
             </select>
           )
@@ -341,6 +353,7 @@ function FieldInput({ field, value, onChange, onBlur }) {
 }
 
 function HostPicker({ field, hosts, query, setQuery, hostId, setHostId }) {
+  const t = useT();
   const filtered = useMemo(() => {
     if (!query.trim()) return hosts.slice(0, 20);
     const q = query.toLowerCase();
@@ -353,17 +366,17 @@ function HostPicker({ field, hosts, query, setQuery, hostId, setHostId }) {
       {selectedName ? (
         <div className="row" style={{ alignItems: 'center', justifyContent: 'space-between', background: 'var(--panel-2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 10 }}>
           <span>{selectedName}</span>
-          <button type="button" className="secondary" onClick={() => { setHostId(null); setQuery(''); }}>Change</button>
+          <button type="button" className="secondary" onClick={() => { setHostId(null); setQuery(''); }}>{t('kiosk.change')}</button>
         </div>
       ) : (
         <>
           <input
             type="text" value={query} onChange={(e) => setQuery(e.target.value)}
-            placeholder={field.placeholder ?? 'Type a name…'} autoComplete="off"
+            placeholder={field.placeholder ?? t('kiosk.typeName')} autoComplete="off"
           />
           {query && (
             <div className="host-suggestions">
-              {filtered.length === 0 && <div className="muted" style={{ padding: 8 }}>No matches.</div>}
+              {filtered.length === 0 && <div className="muted" style={{ padding: 8 }}>{t('kiosk.noMatches')}</div>}
               {filtered.map(h => (
                 <button key={h.id} type="button" className="host-suggestion"
                   onClick={() => { setHostId(h.id); setQuery(h.displayName); }}>
@@ -379,6 +392,7 @@ function HostPicker({ field, hosts, query, setQuery, hostId, setHostId }) {
 }
 
 function ScrollableBody({ doc, onReachedBottom }) {
+  const t = useT();
   const ref = useRef(null);
   const [reached, setReached] = useState(false);
 
@@ -404,23 +418,24 @@ function ScrollableBody({ doc, onReachedBottom }) {
   return (
     <>
       <h2 style={{ margin: 0 }}>{doc.title}</h2>
-      <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Version {doc.version}</div>
+      <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>{t('kiosk.version', { version: doc.version })}</div>
       <div className="doc-body" ref={ref}>
         {doc.body.split(/\n{2,}/).map((p, i) => (
           <p key={i} style={{ whiteSpace: 'pre-wrap', margin: '0 0 12px' }}>{p}</p>
         ))}
       </div>
-      {!reached && <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>↑ Scroll to the bottom to continue.</div>}
+      {!reached && <div className="muted" style={{ marginTop: 8, fontSize: 13 }}>{t('kiosk.scrollToContinue')}</div>}
     </>
   );
 }
 
 function PhotoStage({ onDone }) {
+  const t = useT();
   return (
     <div className="kiosk-card kiosk-photo">
-      <h2 style={{ margin: 0 }}>Quick photo</h2>
+      <h2 style={{ margin: 0 }}>{t('kiosk.photoTitle')}</h2>
       <p className="muted" style={{ margin: '4px 0 12px', fontSize: 14 }}>
-        We&rsquo;ll take a photo for your visitor badge. Stand in front of the iPad and tap the button.
+        {t('kiosk.photoBody')}
       </p>
       <PhotoCapture onChange={(png) => { if (png) onDone(png); }} />
     </div>
@@ -442,6 +457,7 @@ function DocumentAck({ doc, confirmLabel, onDone }) {
 }
 
 function NdaSign({ doc, visitorName, onDone }) {
+  const t = useT();
   const [reached, setReached] = useState(false);
   const [signaturePng, setSignaturePng] = useState(null);
   const canConfirm = reached && signaturePng;
@@ -450,12 +466,12 @@ function NdaSign({ doc, visitorName, onDone }) {
     <div className="kiosk-card kiosk-doc">
       <ScrollableBody doc={doc} onReachedBottom={() => setReached(true)} />
       <div style={{ marginTop: 16 }}>
-        <label>Sign with your finger {visitorName ? <>(<span className="muted">{visitorName}</span>)</> : null}</label>
+        <label>{t('kiosk.signWithFinger')} {visitorName ? <>(<span className="muted">{visitorName}</span>)</> : null}</label>
         <SignaturePad onChange={setSignaturePng} disabled={!reached} />
       </div>
       <div style={{ marginTop: 16 }}>
         <button className="kiosk-cta" disabled={!canConfirm} onClick={() => onDone(signaturePng)}>
-          I agree and sign
+          {t('kiosk.agreeSign')}
         </button>
       </div>
     </div>
@@ -463,13 +479,14 @@ function NdaSign({ doc, visitorName, onDone }) {
 }
 
 function ThankYou({ visit, kiosk, onReset }) {
+  const t = useT();
   const timer = useRef(null);
   useEffect(() => {
     timer.current = setTimeout(onReset, 12000);
     return () => clearTimeout(timer.current);
   }, [onReset]);
 
-  const hostName = visit?.host?.displayName || visit?.host?.username || 'your host';
+  const hostName = visit?.host?.displayName || visit?.host?.username || t('kiosk.yourHost');
   const printerName = kiosk?.defaultPrinterName;
   const badgeUrl = visit?.publicToken ? `/api/visits/badge/${visit.publicToken}` : null;
   const ndaAcked = (visit?.acknowledgments ?? []).some(a => a.kind === 'nda');
@@ -477,30 +494,30 @@ function ThankYou({ visit, kiosk, onReset }) {
 
   return (
     <div className="kiosk-card">
-      <h1>Thanks, {visit?.visitorName?.split(' ')[0] || 'visitor'}.</h1>
+      <h1>{t('kiosk.thanks', { name: visit?.visitorName?.split(' ')[0] || t('common.visitor') })}</h1>
       <p>
-        We&rsquo;ve told <strong>{hostName}</strong> you&rsquo;re here. Please take a seat &mdash; they&rsquo;ll be with you shortly.
+        {t('kiosk.toldHost1')}<strong>{hostName}</strong>{t('kiosk.toldHost2')}
       </p>
       {badgeUrl && (
         <p>
-          Your badge is printing
-          {printerName ? <> to <strong>{printerName}</strong></> : null}.
+          {t('kiosk.badgePrinting')}
+          {printerName ? <>{t('kiosk.badgePrintingTo')}<strong>{printerName}</strong></> : null}.
           {' '}
-          <a href={badgeUrl} target="_blank" rel="noopener noreferrer">Reprint badge</a>.
+          <a href={badgeUrl} target="_blank" rel="noopener noreferrer">{t('kiosk.reprint')}</a>.
         </p>
       )}
       {ndaAcked && visit?.email && (
         <p className="muted" style={{ fontSize: 14 }}>
-          A copy of the signed NDA has been emailed to {visit.email}.
+          {t('kiosk.ndaEmailed', { email: visit.email })}
         </p>
       )}
       {ndaCached && (
         <p className="muted" style={{ fontSize: 14 }}>
-          Your NDA is on file from a previous visit, so we didn&rsquo;t ask you to re-sign today.
+          {t('kiosk.ndaCached')}
         </p>
       )}
-      <button onClick={onReset} className="secondary">Done</button>
-      <div className="kiosk-stub">Returning to the welcome screen automatically…</div>
+      <button onClick={onReset} className="secondary">{t('common.done')}</button>
+      <div className="kiosk-stub">{t('kiosk.returning')}</div>
     </div>
   );
 }

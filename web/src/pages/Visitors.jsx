@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api.js';
 import BanModal from '../components/BanModal.jsx';
+import { useI18n } from '../i18n/index.jsx';
 
 export default function Visitors() {
   const qc = useQueryClient();
+  const { t, locale } = useI18n();
   const [banTarget, setBanTarget] = useState(null);
   const [purgeTarget, setPurgeTarget] = useState(null);
   const { data, isLoading } = useQuery({
@@ -12,32 +14,29 @@ export default function Visitors() {
     queryFn: () => api.get('/api/visitors'),
   });
 
-  if (isLoading) return <div>Loading…</div>;
+  if (isLoading) return <div>{t('common.loading')}</div>;
   const visitors = data?.visitors ?? [];
 
   return (
     <>
-      <h1>Visitors</h1>
+      <h1>{t('visitors.title')}</h1>
       <p className="muted">
-        Everyone the kiosk has ever signed in. Visitors are keyed by email; one row per email address. Returning visitors get their details
-        pre-filled at the kiosk, and if their NDA is fresh (signed against the <em>current</em> active NDA version in the last 365 days)
-        the kiosk skips the NDA step on their next visit. Anonymous visitors (no email) sign in just fine but don&rsquo;t appear here.
+        {t('visitors.intro1')}<em>{t('visitors.intro2')}</em>{t('visitors.intro3')}
       </p>
-
-      {visitors.length === 0 && <div className="panel"><p className="muted">No visitors yet.</p></div>}
+      {visitors.length === 0 && <div className="panel"><p className="muted">{t('visitors.empty')}</p></div>}
 
       {visitors.length > 0 && (
         <div className="panel" style={{ padding: 0 }}>
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Company</th>
-                <th>Phone</th>
-                <th style={{ textAlign: 'right' }}>Visits</th>
-                <th>Last seen</th>
-                <th>NDA on file</th>
+                <th>{t('common.name')}</th>
+                <th>{t('common.email')}</th>
+                <th>{t('common.company')}</th>
+                <th>{t('common.phone')}</th>
+                <th style={{ textAlign: 'right' }}>{t('visitors.visits')}</th>
+                <th>{t('visitors.lastSeen')}</th>
+                <th>{t('visitors.ndaOnFile')}</th>
                 <th />
               </tr>
             </thead>
@@ -49,10 +48,10 @@ export default function Visitors() {
                   <td>{v.company || <span className="muted">—</span>}</td>
                   <td>{v.phone || <span className="muted">—</span>}</td>
                   <td style={{ textAlign: 'right', fontVariantNumeric: 'tabular-nums' }}>{v.visitCount}</td>
-                  <td title={v.lastSeenAt}>{relative(v.lastSeenAt)}</td>
+                  <td title={v.lastSeenAt}>{relative(v.lastSeenAt, t, locale)}</td>
                   <td>
                     {v.ndaCacheFresh
-                      ? <span className="badge muted" title={`v${v.ndaCacheVersion} signed ${v.ndaCacheAcknowledgedAt}`}>v{v.ndaCacheVersion} fresh</span>
+                      ? <span className="badge muted" title={t('visitors.ndaSigned', { version: v.ndaCacheVersion, date: v.ndaCacheAcknowledgedAt })}>{t('visitors.ndaFresh', { version: v.ndaCacheVersion })}</span>
                       : <span className="muted" style={{ fontSize: 12 }}>—</span>}
                   </td>
                   <td style={{ textAlign: 'right', whiteSpace: 'nowrap' }}>
@@ -60,15 +59,15 @@ export default function Visitors() {
                       className="secondary"
                       onClick={() => setBanTarget({ visitorId: v.id, visitorName: v.name, company: v.company, email: v.email })}
                     >
-                      Ban
+                      {t('common.ban')}
                     </button>
                     <button
                       className="danger"
                       style={{ marginLeft: 8 }}
                       onClick={() => setPurgeTarget(v)}
-                      title="GDPR right-to-be-forgotten — deletes the visitor record + scrubs PII from past visits"
+                      title={t('visitors.purgeTitle')}
                     >
-                      Purge
+                      {t('visitors.purge')}
                     </button>
                   </td>
                 </tr>
@@ -101,6 +100,7 @@ export default function Visitors() {
 }
 
 function PurgeModal({ visitor, onClose, onPurged }) {
+  const { t } = useI18n();
   const [reason, setReason] = useState('');
   const [confirm, setConfirm] = useState('');
   const [busy, setBusy] = useState(false);
@@ -110,7 +110,7 @@ function PurgeModal({ visitor, onClose, onPurged }) {
   const submit = async (e) => {
     e.preventDefault();
     if (confirm !== expectedConfirm) {
-      setErr(`Type "${expectedConfirm}" to confirm.`);
+      setErr(t('visitors.typeToConfirm', { value: expectedConfirm }));
       return;
     }
     setErr(null); setBusy(true);
@@ -134,24 +134,21 @@ function PurgeModal({ visitor, onClose, onPurged }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal" onClick={e => e.stopPropagation()}>
-        <h2>Purge {visitor.name}</h2>
+        <h2>{t('visitors.purgeHeading', { name: visitor.name })}</h2>
         <p className="muted">
-          GDPR Art. 17 right-to-be-forgotten. <strong>This is irreversible.</strong> Deletes the visitor record and removes
-          name, company, email, phone, signature, and photo from every past visit, invitation, and notification log entry
-          tied to this visitor. Visit timestamps + host + sign-in/out shape are kept so the audit trail isn&rsquo;t broken.
-          Active bans referencing the visitor stay active but lose their visitor-id link.
+          {t('visitors.purgeHelp1')}<strong>{t('visitors.purgeHelp2')}</strong>{t('visitors.purgeHelp3')}
         </p>
         <form onSubmit={submit}>
-          <label htmlFor="purge-reason">Reason (optional, recorded in audit log)</label>
+          <label htmlFor="purge-reason">{t('visitors.purgeReason')}</label>
           <input
             id="purge-reason"
             value={reason}
             onChange={e => setReason(e.target.value)}
-            placeholder="e.g. subject access request 2026-05"
+            placeholder={t('visitors.purgeReasonPlaceholder')}
             maxLength={512}
           />
           <label htmlFor="purge-confirm" style={{ marginTop: 12 }}>
-            Type <code>{expectedConfirm}</code> to confirm
+            {t('visitors.purgeConfirm1')}<code>{expectedConfirm}</code>{t('visitors.purgeConfirm2')}
           </label>
           <input
             id="purge-confirm"
@@ -162,9 +159,9 @@ function PurgeModal({ visitor, onClose, onPurged }) {
           {err && <div className="error" style={{ marginTop: 8 }}>{err}</div>}
           <div className="row" style={{ gap: 8, marginTop: 12 }}>
             <button type="submit" className="danger" disabled={busy || confirm !== expectedConfirm}>
-              {busy ? 'Purging…' : 'Purge visitor'}
+              {busy ? t('visitors.purging') : t('visitors.purgeButton')}
             </button>
-            <button type="button" onClick={onClose} disabled={busy}>Cancel</button>
+            <button type="button" onClick={onClose} disabled={busy}>{t('common.cancel')}</button>
           </div>
         </form>
       </div>
@@ -172,15 +169,15 @@ function PurgeModal({ visitor, onClose, onPurged }) {
   );
 }
 
-function relative(iso) {
+function relative(iso, t, locale) {
   if (!iso) return '';
-  const t = new Date(iso.replace(' ', 'T') + 'Z').getTime();
-  const mins = Math.floor((Date.now() - t) / 60000);
-  if (mins < 1) return 'just now';
-  if (mins < 60) return `${mins} min ago`;
+  const ts = new Date(iso.replace(' ', 'T') + 'Z').getTime();
+  const mins = Math.floor((Date.now() - ts) / 60000);
+  if (mins < 1) return t('visitors.justNow');
+  if (mins < 60) return t('visitors.minsAgo', { n: mins });
   const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h ago`;
+  if (hours < 24) return t('visitors.hoursAgo', { n: hours });
   const days = Math.floor(hours / 24);
-  if (days < 30) return `${days}d ago`;
-  return new Date(iso.replace(' ', 'T') + 'Z').toLocaleDateString();
+  if (days < 30) return t('visitors.daysAgo', { n: days });
+  return new Date(iso.replace(' ', 'T') + 'Z').toLocaleDateString(locale);
 }

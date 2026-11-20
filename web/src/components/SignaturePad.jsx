@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { useT } from '../i18n/index.jsx';
 
 /**
  * Simple drawn-signature canvas. Pointer events so it works for finger,
@@ -9,6 +10,7 @@ export default function SignaturePad({ onChange, disabled = false, height = 160 
   const ref = useRef(null);
   const drawingRef = useRef(false);
   const [hasInk, setHasInk] = useState(false);
+  const t = useT();
 
   useEffect(() => {
     const canvas = ref.current;
@@ -85,8 +87,8 @@ export default function SignaturePad({ onChange, disabled = false, height = 160 
         style={{ height, touchAction: 'none' }}
       />
       <div className="signature-pad-actions">
-        <button type="button" className="secondary" onClick={clear} disabled={disabled || !hasInk}>Clear</button>
-        {!hasInk && !disabled && <span className="muted" style={{ fontSize: 13 }}>Sign with your finger or stylus.</span>}
+        <button type="button" className="secondary" onClick={clear} disabled={disabled || !hasInk}>{t('sig.clear')}</button>
+        {!hasInk && !disabled && <span className="muted" style={{ fontSize: 13 }}>{t('sig.hint')}</span>}
       </div>
     </div>
   );

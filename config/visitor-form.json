@@ -1,49 +1,99 @@
 {
   "$comment": "Sample visitor sign-in form. Seeded into the DB on first migration; admin UI is authoritative thereafter (same pattern as cambiar/config/change-types.json). Edit this file before first deploy to customize what the kiosk asks visitors. v0.1 ships this file but does not yet consume it — v0.2 introduces the kiosk sign-in flow that reads from the seeded fields.",
+  "$comment_i18n": "label, placeholder and each option can be a plain string (same in every language) or an object per language, e.g. {\"es\": \"Empresa\", \"en\": \"Company\"}. The kiosk shows the one for the language chosen under Admin > Settings > Language.",
   "fields": [
     {
       "key": "name",
-      "label": "Your name",
+      "label": {
+        "es": "Su nombre",
+        "en": "Your name"
+      },
       "type": "text",
       "required": true,
-      "placeholder": "First and last"
+      "placeholder": {
+        "es": "Nombre y apellidos",
+        "en": "First and last"
+      }
     },
     {
       "key": "company",
-      "label": "Company",
+      "label": {
+        "es": "Empresa",
+        "en": "Company"
+      },
       "type": "text",
       "required": false
     },
     {
       "key": "email",
-      "label": "Email",
+      "label": {
+        "es": "Correo electrónico",
+        "en": "Email"
+      },
       "type": "email",
       "required": false
     },
     {
       "key": "phone",
-      "label": "Mobile number",
+      "label": {
+        "es": "Teléfono celular",
+        "en": "Mobile number"
+      },
       "type": "tel",
       "required": false,
       "$comment": "Optional. Used for SMS host-arrival pings if SMS is enabled."
     },
     {
       "key": "host",
-      "label": "Who are you here to see?",
+      "label": {
+        "es": "¿A quién viene a ver?",
+        "en": "Who are you here to see?"
+      },
       "type": "host-typeahead",
       "required": true,
       "$comment": "Special type — populated server-side from local users + the AD visitas-world group. Renders as an autocomplete on the kiosk."
     },
     {
       "key": "purpose",
-      "label": "Reason for visit",
+      "label": {
+        "es": "Motivo de la visita",
+        "en": "Reason for visit"
+      },
       "type": "select",
       "required": true,
-      "options": ["Meeting", "Client review", "Delivery", "Interview", "Vendor", "Other"]
+      "options": [
+        {
+          "es": "Reunión",
+          "en": "Meeting"
+        },
+        {
+          "es": "Revisión con cliente",
+          "en": "Client review"
+        },
+        {
+          "es": "Entrega",
+          "en": "Delivery"
+        },
+        {
+          "es": "Entrevista",
+          "en": "Interview"
+        },
+        {
+          "es": "Proveedor",
+          "en": "Vendor"
+        },
+        {
+          "es": "Otro",
+          "en": "Other"
+        }
+      ]
     },
     {
       "key": "notes",
-      "label": "Anything else we should know?",
+      "label": {
+        "es": "¿Algo más que debamos saber?",
+        "en": "Anything else we should know?"
+      },
       "type": "textarea",
       "required": false
     }

@@ -2,9 +2,11 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api.js';
 import BanModal from '../components/BanModal.jsx';
+import { useI18n, durationSince } from '../i18n/index.jsx';
 
 export default function ActiveVisitors() {
   const qc = useQueryClient();
+  const { t, locale } = useI18n();
   const { data, isLoading } = useQuery({
     queryKey: ['visits', 'on_site'],
     queryFn: () => api.get('/api/visits?status=on_site'),
@@ -22,19 +24,18 @@ export default function ActiveVisitors() {
   return (
     <>
       <div className="row between">
-        <h1>Active visitors</h1>
-        <div className="muted">Auto-refreshes every 30 s.</div>
+        <h1>{t('active.title')}</h1>
+        <div className="muted">{t('active.autoRefresh')}</div>
       </div>
 
       <p className="muted">
-        Everyone currently signed in. Force sign-out below if a visitor has left without using the kiosk &mdash;
-        the audit log records that you signed them out.
+        {t('active.intro')}
       </p>
 
-      {isLoading && <div className="panel"><p className="muted">Loading…</p></div>}
+      {isLoading && <div className="panel"><p className="muted">{t('common.loading')}</p></div>}
 
       {!isLoading && data?.visits?.length === 0 && (
-        <div className="panel"><p className="muted">No one is currently on-site.</p></div>
+        <div className="panel"><p className="muted">{t('active.empty')}</p></div>
       )}
 
       {data?.visits?.length > 0 && (
@@ -42,13 +43,13 @@ export default function ActiveVisitors() {
           <table>
             <thead>
               <tr>
-                <th>Name</th>
-                <th>Company</th>
-                <th>Host</th>
-                <th>Kiosk</th>
-                <th>Purpose</th>
-                <th>Signed in</th>
-                <th>On site</th>
+                <th>{t('common.name')}</th>
+                <th>{t('common.company')}</th>
+                <th>{t('common.host')}</th>
+                <th>{t('active.kiosk')}</th>
+                <th>{t('active.purpose')}</th>
+                <th>{t('active.signedIn')}</th>
+                <th>{t('active.onSite')}</th>
                 <th />
               </tr>
             </thead>
@@ -60,19 +61,19 @@ export default function ActiveVisitors() {
                   <td>{v.host?.displayName || v.host?.username || <span className="muted">—</span>}</td>
                   <td>{v.kiosk?.name || <span className="muted">—</span>}</td>
                   <td>{v.purpose || <span className="muted">—</span>}</td>
-                  <td title={v.signedInAt}>{formatTime(v.signedInAt)}</td>
-                  <td>{durationSince(v.signedInAt)}</td>
+                  <td title={v.signedInAt}>{formatTime(v.signedInAt, locale)}</td>
+                  <td>{durationSince(t, v.signedInAt)}</td>
                   <td style={{ textAlign: 'right' }}>
                     {confirming === v.id ? (
                       <span className="row">
                         <button className="danger" onClick={() => { signOut.mutate(v.id); setConfirming(null); }}>
-                          Confirm sign out
+                          {t('active.confirmSignOut')}
                         </button>
-                        <button className="secondary" onClick={() => setConfirming(null)}>Cancel</button>
+                        <button className="secondary" onClick={() => setConfirming(null)}>{t('common.cancel')}</button>
                       </span>
                     ) : (
                       <span className="row">
-                        <button className="secondary" onClick={() => setConfirming(v.id)}>Force sign out</button>
+                        <button className="secondary" onClick={() => setConfirming(v.id)}>{t('active.forceSignOut')}</button>
                         <button
                           className="secondary"
                           onClick={() => setBanTarget({
@@ -82,7 +83,7 @@ export default function ActiveVisitors() {
                             email: v.email,
                           })}
                         >
-                          Ban
+                          {t('common.ban')}
                         </button>
                       </span>
                     )}
@@ -105,18 +106,9 @@ export default function ActiveVisitors() {
   );
 }
 
-function formatTime(iso) {
+function formatTime(iso, locale) {
   if (!iso) return '';
   const d = new Date(iso.replace(' ', 'T') + 'Z');
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString(locale, { hour: '2-digit', minute: '2-digit' });
 }
 
-function durationSince(iso) {
-  if (!iso) return '';
-  const start = new Date(iso.replace(' ', 'T') + 'Z').getTime();
-  const mins = Math.max(0, Math.floor((Date.now() - start) / 60000));
-  if (mins < 60) return `${mins} min`;
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
-  return `${h}h ${m}m`;
-}

@@ -3,6 +3,7 @@ import { logger } from '../logger.js';
 import { db } from '../db/index.js';
 import { sendEmail, emailEnabled } from './email.js';
 import { sendSms, smsEnabled } from './sms.js';
+import { t } from '../i18n/index.js';
 
 /**
  * Fire host notifications for a visit event.
@@ -66,18 +67,18 @@ export async function notifySigninBlocked({ ban, attempt }) {
   `).all();
   if (recipients.length === 0) return;
 
-  const subject = `[visitas.world] Banned sign-in attempt — ${attempt.visitorName ?? 'unknown'}`;
+  const subject = t('blocked.subject', { visitor: attempt.visitorName ?? t('blocked.unknown') });
   const body = [
-    `A banned sign-in attempt was just blocked at the kiosk.`,
+    t('blocked.intro'),
     '',
-    `Visitor: ${attempt.visitorName ?? '—'}${attempt.company ? ` (${attempt.company})` : ''}`,
-    `Email: ${attempt.email ?? '—'}`,
-    `Kiosk: ${attempt.kioskSlug ?? 'default'}`,
+    t('blocked.visitor', { value: `${attempt.visitorName ?? '—'}${attempt.company ? ` (${attempt.company})` : ''}` }),
+    t('blocked.email', { value: attempt.email ?? '—' }),
+    t('blocked.kiosk', { value: attempt.kioskSlug ?? 'default' }),
     '',
-    `Ban id: ${ban.id} (mode: ${ban.mode})`,
-    `Reason: ${ban.reason}`,
+    t('blocked.ban', { id: ban.id, mode: ban.mode }),
+    t('blocked.reason', { reason: ban.reason }),
     '',
-    `Reception: please intercept the visitor and explain politely.`,
+    t('blocked.action'),
   ].join('\n');
 
   const tasks = [];
@@ -90,7 +91,7 @@ export async function notifySigninBlocked({ ban, attempt }) {
     }
     if (smsEnabled() && wantsChannel('sms', 'signin_blocked') && r.phone) {
       tasks.push(
-        sendSms({ to: r.phone, body: `${subject}\n${attempt.visitorName ?? '—'} blocked at ${attempt.kioskSlug ?? 'default'} kiosk`, event: 'signin_blocked' })
+        sendSms({ to: r.phone, body: `${subject}\n${t('blocked.sms', { visitor: attempt.visitorName ?? '—', kiosk: attempt.kioskSlug ?? 'default' })}`, event: 'signin_blocked' })
           .catch(err => logger.error({ err: err.message, userId: r.id }, 'signin_blocked sms failed'))
       );
     }
@@ -124,37 +125,38 @@ function wantsChannel(channel, event) {
 
 function subjectFor(event, visit, host) {
   const hostName = host.display_name || host.username;
-  const visitor = visit.visitorName ?? visit.visitor_name ?? 'A visitor';
+  const visitor = visit.visitorName ?? visit.visitor_name ?? t('notify.aVisitor');
   switch (event) {
-    case 'signed_in':         return `[visitas.world] ${visitor} is here to see ${hostName}`;
-    case 'signed_out':        return `[visitas.world] ${visitor} has signed out`;
-    case 'force_signed_out':  return `[visitas.world] ${visitor} was signed out by reception`;
-    default:                  return `[visitas.world] visit ${event}: ${visitor}`;
+    case 'signed_in':         return t('notify.signedIn.subject', { visitor, host: hostName });
+    case 'signed_out':        return t('notify.signedOut.subject', { visitor });
+    case 'force_signed_out':  return t('notify.forceSignedOut.subject', { visitor });
+    default:                  return t('notify.other.subject', { event, visitor });
   }
 }
 
 function bodyFor(event, visit, actor) {
-  const visitor = visit.visitorName ?? visit.visitor_name ?? 'visitor';
-  const company = visit.company ? ` from ${visit.company}` : '';
-  const purpose = visit.purpose ? `Reason: ${visit.purpose}` : null;
+  const visitor = visit.visitorName ?? visit.visitor_name ?? t('notify.visitor');
+  const company = visit.company ? t('notify.fromCompany', { company: visit.company }) : '';
+  const purpose = visit.purpose ? t('notify.reason', { purpose: visit.purpose }) : null;
 
   const lines = [];
   switch (event) {
     case 'signed_in':
-      lines.push(`${visitor}${company} just signed in at the visitor kiosk to see you.`);
+      lines.push(t('notify.signedIn.body', { visitor, company }));
       if (purpose) lines.push(purpose);
-      lines.push('They are waiting in reception.');
+      lines.push(t('notify.signedIn.waiting'));
       break;
     case 'signed_out':
-      lines.push(`${visitor} has signed out at the kiosk.`);
+      lines.push(t('notify.signedOut.body', { visitor }));
       break;
     case 'force_signed_out': {
-      const by = actor ? `${actor.display_name || actor.username} (${actor.role})` : 'reception';
-      lines.push(`${visitor} was signed out by ${by} (force sign-out).`);
+      const role = actor?.role ? t(`role.${actor.role}`) : '';
+      const by = actor ? `${actor.display_name || actor.username} (${role})` : t('notify.reception');
+      lines.push(t('notify.forceSignedOut.body', { visitor, by }));
       break;
     }
     default:
-      lines.push(`Visit event: ${event}`);
+      lines.push(t('notify.other.body', { event }));
   }
   return lines.join('\n');
 }

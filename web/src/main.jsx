@@ -6,6 +6,7 @@ import App from './App.jsx';
 import { AuthProvider } from './auth.jsx';
 import { BrandingProvider } from './branding.jsx';
 import { ThemeProvider } from './theme.jsx';
+import { I18nProvider } from './i18n/index.jsx';
 import './styles.css';
 
 const qc = new QueryClient({ defaultOptions: { queries: { retry: 1, refetchOnWindowFocus: false } } });
@@ -16,9 +17,11 @@ ReactDOM.createRoot(document.getElementById('root')).render(
       <QueryClientProvider client={qc}>
         <ThemeProvider>
           <BrandingProvider>
-            <AuthProvider>
-              <App />
-            </AuthProvider>
+            <I18nProvider>
+              <AuthProvider>
+                <App />
+              </AuthProvider>
+            </I18nProvider>
           </BrandingProvider>
         </ThemeProvider>
       </QueryClientProvider>
