@@ -123,14 +123,15 @@ describe('POST /api/visitors/lookup (public)', () => {
     expect(res.status).toBe(200);
     expect(res.body.visitor).toMatchObject({
       name: 'Alice',
-      company: 'ACME',
-      phone: '+15555550100',
-      email: 'a@x.com',
       isReturning: true,
       ndaCacheFresh: true,
       ndaCacheVersion: 1,
     });
     expect(res.body.visitor.ndaCacheAcknowledgedAt).toBeTruthy();
+    // Public endpoint must not leak contact data.
+    expect(res.body.visitor).not.toHaveProperty('phone');
+    expect(res.body.visitor).not.toHaveProperty('email');
+    expect(res.body.visitor).not.toHaveProperty('company');
   });
 
   test('case-insensitive lookup', async () => {

@@ -178,6 +178,9 @@ describe('GET /api/visits/badge/:token (public)', () => {
     expect(res.text).toContain('ACME');
     expect(res.text).toContain('Jane Host');
     expect(res.text).toContain('Reception Printer');
+    // Badge gets its own tight CSP (inline print script allowed, nothing external).
+    expect(res.headers['content-security-policy']).toMatch(/default-src 'none'/);
+    expect(res.headers['content-security-policy']).toMatch(/script-src 'unsafe-inline'/);
   });
 
   test('escapes HTML in visitor name (no XSS via name)', async () => {

@@ -20,6 +20,9 @@ services:
       # https://<domain> when --domain is used; the server drives the cookie
       # Secure flag off this value.
       BASE_URL: ${BASE_URL:-}
+      # Set to 1 when the app sits behind the bundled Caddy (tls profile) so
+      # rate limits see the real client IP. Leave empty for direct HTTP.
+      TRUST_PROXY: ${TRUST_PROXY:-}
       AD_BIND_PASSWORD: ${AD_BIND_PASSWORD:-}
       SMTP_PASSWORD: ${SMTP_PASSWORD:-}
       SMS_AUTH_TOKEN: ${SMS_AUTH_TOKEN:-}

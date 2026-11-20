@@ -53,11 +53,11 @@ export function lookupForKiosk(email) {
   const v = findByEmail(email);
   if (!v) return null;
   const ndaCache = computeNdaCache(v.id);
+  // Deliberately minimal: this feeds a PUBLIC endpoint. Phone, email and
+  // company are not returned so the lookup can't be used to harvest
+  // contact details by guessing emails. The visitor retypes them.
   return {
     name: v.name,
-    company: v.company,
-    phone: v.phone,
-    email: v.email,
     isReturning: true,
     ndaCacheFresh: ndaCache.fresh,
     ndaCacheVersion: ndaCache.version ?? null,

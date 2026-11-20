@@ -1,5 +1,6 @@
 import express from 'express';
 import cookieParser from 'cookie-parser';
+import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { existsSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -24,6 +25,33 @@ import notificationsLogRouter from './routes/notificationsLog.js';
  */
 export function createApp({ httpLogger = true } = {}) {
   const app = express();
+  app.set('trust proxy', config.trustProxy);
+  app.disable('x-powered-by');
+
+  // Security headers. CSP is tuned for the bundled SPA: no third-party
+  // origins, camera frames rendered via data:/blob: URLs. No
+  // upgrade-insecure-requests, because LAN installs legitimately run over
+  // plain HTTP on :3000 until TLS is configured.
+  app.use(helmet({
+    contentSecurityPolicy: {
+      useDefaults: false,
+      directives: {
+        defaultSrc: ["'self'"],
+        scriptSrc: ["'self'"],
+        styleSrc: ["'self'", "'unsafe-inline'"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        mediaSrc: ["'self'", 'blob:'],
+        fontSrc: ["'self'", 'data:'],
+        connectSrc: ["'self'"],
+        objectSrc: ["'none'"],
+        baseUri: ["'self'"],
+        formAction: ["'self'"],
+        frameAncestors: ["'self'"],
+      },
+    },
+    // HSTS only makes sense once the deploy is on HTTPS.
+    strictTransportSecurity: config.baseUrl.startsWith('https://'),
+  }));
 
   if (httpLogger) {
     app.use(pinoHttp({
@@ -107,7 +135,16 @@ export function createApp({ httpLogger = true } = {}) {
   // Serve uploaded files (logos etc.) — no auth required because the logo is public branding.
   // fallthrough:false so missing files return 404 instead of falling into the SPA catch-all.
   const uploadsDir = resolve(config.dataDir, 'uploads');
-  app.use('/uploads', express.static(uploadsDir, { fallthrough: false, maxAge: '1h' }));
+  // Uploaded logos may be SVG, which can carry script. Lock them down so an
+  // SVG opened directly can't run JavaScript on this origin.
+  app.use('/uploads', express.static(uploadsDir, {
+    fallthrough: false,
+    maxAge: '1h',
+    setHeaders(res) {
+      res.set('Content-Security-Policy', "default-src 'none'; style-src 'unsafe-inline'; img-src 'self' data:; sandbox");
+      res.set('X-Content-Type-Options', 'nosniff');
+    },
+  }));
 
   const webDist = resolve(config.repoRoot, 'web/dist');
   if (existsSync(webDist)) {

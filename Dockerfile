@@ -3,9 +3,12 @@
 # ---- Stage 1: build the React frontend ----
 FROM node:24-bookworm-slim AS web-build
 WORKDIR /app
-COPY package.json ./
+# Install from the lockfile (npm ci) so every build gets the exact,
+# audited dependency versions instead of whatever is newest that day.
+COPY package.json package-lock.json ./
 COPY web/package.json web/package.json
-RUN npm install --workspace web --ignore-scripts
+COPY server/package.json server/package.json
+RUN npm ci --workspace web --ignore-scripts --no-audit --no-fund
 COPY web ./web
 RUN npm run build --workspace web
 
@@ -15,9 +18,10 @@ WORKDIR /app
 RUN apt-get update && apt-get install -y --no-install-recommends \
     python3 build-essential \
   && rm -rf /var/lib/apt/lists/*
-COPY package.json ./
+COPY package.json package-lock.json ./
 COPY server/package.json server/package.json
-RUN npm install --workspace server --omit=dev
+COPY web/package.json web/package.json
+RUN npm ci --workspace server --omit=dev --no-audit --no-fund
 
 # ---- Stage 3: runtime ----
 FROM node:24-bookworm-slim AS runtime

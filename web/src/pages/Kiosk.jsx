@@ -208,10 +208,9 @@ function SignInForm({ kioskSlug, initialErr, invitation, onDone }) {
       const r = await api.post('/api/visitors/lookup', { email });
       setLookup(r.visitor);
       // Pre-fill any fields the visitor hasn't already typed something into.
+      // The lookup only returns the name (no contact data, see server).
       setValues(p => ({
-        name:    p.name    || r.visitor.name    || '',
-        company: p.company || r.visitor.company || '',
-        phone:   p.phone   || r.visitor.phone   || '',
+        name: p.name || r.visitor.name || '',
         ...p,
       }));
     } catch {
@@ -265,7 +264,7 @@ function SignInForm({ kioskSlug, initialErr, invitation, onDone }) {
 
       {lookup && (
         <div className="kiosk-welcomeback">
-          <strong>Welcome back, {lookup.name?.split(' ')[0] || 'visitor'}.</strong> Your details are pre-filled below — edit if anything has changed.
+          <strong>Welcome back, {lookup.name?.split(' ')[0] || 'visitor'}.</strong> Your name is pre-filled below — please confirm the rest of your details.
           {lookup.ndaCacheFresh && <div style={{ marginTop: 4, fontSize: 13 }}>Your NDA from a previous visit is still on file (v{lookup.ndaCacheVersion}); we won&rsquo;t ask you to re-sign today.</div>}
         </div>
       )}
