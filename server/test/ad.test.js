@@ -129,12 +129,12 @@ describe('AD login', () => {
     const res = await client().post('/api/auth/login').send({ username: 'alice', password: 'secret' });
     expect(res.status).toBe(200);
     expect(res.body.user).toMatchObject({
-      username: 'alice', source: 'ad', role: 'admin', email: 'alice@example.com', displayName: 'Alice Example',
+      username: 'alice', source: 'ad', role: 'host', email: 'alice@example.com', displayName: 'Alice Example',
     });
 
     const stored = row('SELECT * FROM users WHERE username = ?', 'alice');
     expect(stored.source).toBe('ad');
-    expect(stored.role).toBe('admin');
+    expect(stored.role).toBe('host');
     expect(stored.password_hash).toBeNull();
   });
 

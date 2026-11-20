@@ -12,6 +12,8 @@ import { test, expect } from '@playwright/test';
 // signed-in browser context.
 
 const ADMIN_PASSWORD = 'AdminNewPass1234';
+// 1×1 transparent PNG for the NDA signature in API-driven sign-ins.
+const TINY_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNkYAAAAAYAAjCB0C8AAAAASUVORK5CYII=';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -90,6 +92,104 @@ test('es: visitor signs in, gets a Spanish badge, and signs out', async ({ page,
   await page.getByPlaceholder('Escanee su gafete').fill(`http://kiosk.local/kiosk/signout/${signoutCode}`);
   await page.getByRole('button', { name: 'Registrar salida' }).click();
   await expect(page.getByRole('heading', { name: 'Hasta luego, Luis.' })).toBeVisible();
+});
+
+test('es: paperless kiosk prints nothing and the visitor signs out by name', async ({ page }) => {
+  const put = await adminCtx.request.put('/api/settings/kiosk-badge', { data: { print: false } });
+  expect(put.ok()).toBe(true);
+  try {
+    await page.addInitScript(() => {
+      window.__opened = [];
+      window.open = (url) => { window.__opened.push(String(url)); return null; };
+    });
+    await page.goto('/kiosk/default');
+    await page.getByLabel(/Su nombre/).fill('Sofía Sinpapel');
+    await page.getByPlaceholder(/Escriba un nombre…/).fill('Jane');
+    await page.getByRole('button', { name: 'Jane Host' }).click();
+    await page.getByLabel(/Motivo de la visita/).selectOption('Reunión');
+    await page.getByRole('button', { name: 'Continuar' }).click();
+
+    await page.locator('.doc-body').first().evaluate(el => { el.scrollTop = el.scrollHeight; });
+    await page.getByRole('button', { name: /Lo he leído/ }).click();
+    await page.locator('.doc-body').first().evaluate(el => { el.scrollTop = el.scrollHeight; });
+    const pad = page.locator('canvas.signature-pad');
+    await expect(pad).not.toHaveClass(/disabled/);
+    const box = await pad.boundingBox();
+    await page.mouse.move(box.x + 20, box.y + 20);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 200, box.y + 100, { steps: 10 });
+    await page.mouse.up();
+    await page.getByRole('button', { name: 'Acepto y firmo' }).click();
+
+    await expect(page.getByRole('heading', { name: 'Gracias, Sofía.' })).toBeVisible();
+    await expect(page.getByText(/Ya avisamos a/)).toBeVisible();
+    await expect(page.getByTestId('paperless-signout-hint')).toHaveText(/registre su salida en este kiosco/);
+    await expect(page.getByRole('link', { name: 'Reimprimir gafete' })).toHaveCount(0);
+    expect(await page.evaluate(() => window.__opened)).toEqual([]);
+
+    // Sign-out switched to the name list automatically.
+    await page.goto('/kiosk/signout');
+    await expect(page.getByText('Toque su nombre para registrar su salida.')).toBeVisible();
+    await page.getByRole('button', { name: /Sofía Sinpapel/ }).click();
+    await expect(page.getByRole('heading', { name: 'Hasta luego, Sofía.' })).toBeVisible();
+  } finally {
+    await adminCtx.request.put('/api/settings/kiosk-badge', { data: { print: true } });
+    await adminCtx.request.put('/api/settings/kiosk-signout', { data: { mode: 'badge' } });
+  }
+});
+
+test('es: host sees the device-alerts panel and the service worker is served', async () => {
+  const page = await adminCtx.newPage();
+  try {
+    await page.goto('/admin/active-visitors');
+    const panel = page.getByTestId('push-alerts');
+    await expect(panel.getByRole('heading', { name: 'Avisos en este dispositivo' })).toBeVisible();
+    // localhost is a secure context, so Chromium offers the opt-in button.
+    await expect(panel.getByRole('button', { name: 'Recibir avisos aquí' })).toBeVisible();
+
+    const sw = await page.request.get('/sw.js');
+    expect(sw.ok()).toBe(true);
+    expect(sw.headers()['content-type']).toMatch(/javascript/);
+    expect(await sw.text()).toContain("addEventListener('push'");
+    const manifest = await page.request.get('/manifest.webmanifest');
+    expect(manifest.ok()).toBe(true);
+    expect((await manifest.json()).display).toBe('standalone');
+  } finally {
+    await page.close();
+  }
+});
+
+test('es: a host only sees their own visitors and the alerts panel', async ({ browser }, testInfo) => {
+  const created = await adminCtx.request.post('/api/users', { data: { username: 'hana', password: 'HanaTemp12345', displayName: 'Hana Anfitriona', role: 'host' } });
+  expect(created.status()).toBe(201);
+  const hostId = (await created.json()).user.id;
+
+  const ctx = await browser.newContext({ baseURL: testInfo.project.use.baseURL });
+  try {
+    expect((await ctx.request.post('/api/auth/login', { data: { username: 'hana', password: 'HanaTemp12345' } })).ok()).toBe(true);
+    expect((await ctx.request.post('/api/auth/change-password', { data: { currentPassword: 'HanaTemp12345', newPassword: 'HanaNueva12345' } })).ok()).toBe(true);
+
+    // A visitor arrives for Hana (kiosk API, no documents needed for the check).
+    const docs = await (await ctx.request.get('/api/documents/active')).json();
+    const acks = [];
+    for (const d of docs.documents ?? []) acks.push({ kind: d.kind, signedName: 'Rita Visita', signaturePngBase64: d.kind === 'nda' ? TINY_PNG : undefined });
+    const visit = await ctx.request.post('/api/visits', { data: { visitorName: 'Rita Visita', company: 'Proveedora SA', hostUserId: hostId, acknowledgments: acks } });
+    expect(visit.status()).toBe(201);
+
+    const page = await ctx.newPage();
+    await page.goto('/');
+    await expect(page).toHaveURL(/\/admin\/my-visits/);
+    await expect(page.getByRole('heading', { name: 'Mis visitas' })).toBeVisible();
+    await expect(page.getByText('Rita Visita')).toBeVisible();
+    await expect(page.getByTestId('push-alerts')).toBeVisible();
+    await expect(page.getByRole('link', { name: 'Usuarios' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Visitantes en sitio' })).toHaveCount(0);
+
+    await page.goto('/admin/settings');
+    await expect(page).toHaveURL(/\/admin\/my-visits/);
+  } finally {
+    await ctx.close();
+  }
 });
 
 test('es: login screen is in Spanish', async ({ page }) => {

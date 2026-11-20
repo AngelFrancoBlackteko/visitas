@@ -4,6 +4,71 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.13.0] — 2026-11-20
+
+Host role: hosts no longer need to be admins.
+
+### Added
+- **`host` role.** Hosts appear in the kiosk host list, receive alerts, and
+  see only **My visitors** (`/admin/my-visits`, `GET /api/visits/mine`:
+  their on-site visitors plus the last 24 hours, without email, phone,
+  photo or tokens). They can't reach any admin or security page or API.
+- Users → new users default to *host*; any user can be switched to/from
+  host. Migration `013_host_role.sql` widens `users.role`.
+- A host's phone alert opens *My visitors*.
+
+### Changed
+- **AD users now start as `host`, not `admin`.** Existing AD users keep
+  their current role; promote admins from Users.
+- Admins keep working as hosts; existing local users are unchanged.
+
+## [1.12.0] — 2026-11-20
+
+Browser alerts: the host's phone rings when their visitor arrives.
+
+### Added
+- **Web Push alerts** for hosts. Active visitors → *Alerts on this device*
+  → *Get alerts here*. A visitor signing in pings every device the host
+  turned on, even with the page closed; blocked sign-ins ping admin and
+  security devices. No third-party account or API key: standard Web Push
+  with a VAPID key pair the server generates on first use (or
+  `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`). Needs HTTPS; on iPhone, iOS
+  16.4+ and the app added to the Home Screen.
+- `/api/push` routes (config, subscribe, unsubscribe, test) for the
+  signed-in user's own devices. Up to 10 devices per user.
+- Service worker (`/sw.js`) and web app manifest so iPhone can install the
+  app and receive alerts.
+- Migration `012_push_subscriptions.sql`; `notifications_log.kind` accepts
+  `push`. Dependency: `web-push` 3.6.7.
+- `config/notifications.json` gains `push` (`enabled`, `events`).
+
+### Security
+- Subscription endpoints must be HTTPS URLs at a known push service, so a
+  signed-in user can't make the server call arbitrary hosts.
+- Endpoints (bearer secrets) are never returned by the API nor written to
+  the notifications log; the log records `user:<id>`.
+- Signing out removes the device's subscription, so a shared tablet stops
+  getting the previous user's alerts. Devices the push service reports as
+  gone (404/410) are deleted.
+
+## [1.11.0] — 2026-11-20
+
+Paperless kiosk: sign in without printing a badge.
+
+### Added
+- **Printed badge setting** (Settings → Printed badge): print a badge at
+  every sign-in (default, unchanged behaviour) or go paperless. Public
+  `GET /api/settings/kiosk-badge` (`{ print }`), admin-only
+  `PUT /api/settings/kiosk-badge`.
+- Paperless thank-you screen tells the visitor to sign out at the kiosk by
+  tapping their name, and shows no reprint link.
+
+### Changed
+- Turning printing off also switches kiosk sign-out to the name list,
+  because there is no badge QR to scan. While printing is off,
+  `PUT /api/settings/kiosk-signout` refuses `badge` with `409
+  PRINT_BADGE_OFF`. Host notifications are unchanged.
+
 ## [1.10.0] — 2026-11-20
 
 Spanish (Mexico) interface, with English still available.

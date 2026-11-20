@@ -45,7 +45,7 @@ router.post('/login', loginLimiter, async (req, res) => {
   }
 
   // 2. Fall back to AD when enabled. AD users in the visitas-world group
-  //    get an upserted users row with source='ad', role='admin'.
+  //    get an upserted users row with source='ad', role='host'.
   if (adEnabled()) {
     try {
       const adUser = await authenticateAD(username, password);
@@ -121,7 +121,9 @@ function sanitizeUser(u) {
 /**
  * Upsert an AD-authenticated user into the local users table. AD users get:
  *   - source='ad'
- *   - role='admin' (visitas's single role; AD users are hosts + admins)
+ *   - role='host' on first login: they can receive visitors and alerts but
+ *     not administer the site. An admin promotes them from Users if needed;
+ *     the role is never overwritten on later logins.
  *   - no password_hash (auth happens via LDAP each login)
  *   - must_change_password=0 (no local password to change)
  *   - email + display_name refreshed from AD on every login
@@ -138,7 +140,7 @@ function upsertADUser(adUser) {
   }
   const info = db.prepare(`
     INSERT INTO users (username, email, display_name, source, role, must_change_password, active)
-    VALUES (?, ?, ?, 'ad', 'admin', 0, 1)
+    VALUES (?, ?, ?, 'ad', 'host', 0, 1)
   `).run(adUser.username, adUser.email, adUser.displayName);
   return db.prepare('SELECT * FROM users WHERE id = ?').get(info.lastInsertRowid);
 }

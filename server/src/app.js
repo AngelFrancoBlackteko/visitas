@@ -18,6 +18,7 @@ import visitorsRouter from './routes/visitors.js';
 import invitationsRouter from './routes/invitations.js';
 import bansRouter from './routes/bans.js';
 import notificationsLogRouter from './routes/notificationsLog.js';
+import pushRouter from './routes/push.js';
 
 /**
  * Build an Express app instance. Migrations and admin bootstrap are NOT
@@ -131,6 +132,7 @@ export function createApp({ httpLogger = true } = {}) {
   app.use('/api/invitations', invitationsRouter);
   app.use('/api/bans', bansRouter);
   app.use('/api/notifications-log', notificationsLogRouter);
+  app.use('/api/push', pushRouter);
 
   // Serve uploaded files (logos etc.) — no auth required because the logo is public branding.
   // fallthrough:false so missing files return 404 instead of falling into the SPA catch-all.

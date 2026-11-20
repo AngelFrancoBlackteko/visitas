@@ -4,6 +4,7 @@ import { db } from '../db/index.js';
 import { sendEmail, emailEnabled } from './email.js';
 import { sendSms, smsEnabled } from './sms.js';
 import { t } from '../i18n/index.js';
+import { sendPushToUser, pushEnabled } from '../services/push.js';
 
 /**
  * Fire host notifications for a visit event.
@@ -17,7 +18,7 @@ import { t } from '../i18n/index.js';
  */
 export async function notifyVisitEvent(event, { visit, actor = null } = {}) {
   if (!visit) return;
-  if (!emailEnabled() && !smsEnabled()) return;
+  if (!emailEnabled() && !smsEnabled() && !pushEnabled()) return;
 
   const host = loadHost(visit);
   if (!host) return;
@@ -37,6 +38,16 @@ export async function notifyVisitEvent(event, { visit, actor = null } = {}) {
       sendSms({ to: host.phone, body: `${subject}\n${body}`, event })
         .catch(err => logger.error({ err: err.message, event, hostId: host.id }, 'sms notify failed'))
     );
+  }
+  // Browser push to the host's opted-in devices. On by default; only
+  // devices the host turned on receive anything. sendPushToUser never throws.
+  if (pushEnabled() && wantsChannel('push', event)) {
+    tasks.push(sendPushToUser(host.id, {
+      title: subject.replace(/^\[[^\]]*\]\s*/, ''),
+      body,
+      url: host.role === 'host' ? '/admin/my-visits' : '/admin/active-visitors',
+      tag: `visit-${visit.id}`,
+    }, { event }));
   }
   await Promise.allSettled(tasks);
 }
@@ -58,7 +69,7 @@ export function notifyVisitEventAsync(event, payload) {
  * Best-effort: failures logged, never propagated.
  */
 export async function notifySigninBlocked({ ban, attempt }) {
-  if (!emailEnabled() && !smsEnabled()) return;
+  if (!emailEnabled() && !smsEnabled() && !pushEnabled()) return;
 
   const recipients = db.prepare(`
     SELECT id, email, phone, display_name, username
@@ -95,6 +106,14 @@ export async function notifySigninBlocked({ ban, attempt }) {
           .catch(err => logger.error({ err: err.message, userId: r.id }, 'signin_blocked sms failed'))
       );
     }
+    if (pushEnabled() && wantsChannel('push', 'signin_blocked')) {
+      tasks.push(sendPushToUser(r.id, {
+        title: subject.replace(/^\[[^\]]*\]\s*/, ''),
+        body: t('blocked.sms', { visitor: attempt.visitorName ?? '—', kiosk: attempt.kioskSlug ?? 'default' }),
+        url: '/admin/active-visitors',
+        tag: 'signin-blocked',
+      }, { event: 'signin_blocked' }));
+    }
   }
   await Promise.allSettled(tasks);
 }
@@ -113,12 +132,17 @@ function loadHost(visit) {
   const id = visit.host?.id ?? visit.host_user_id;
   if (!id) return null;
   return db.prepare(
-    'SELECT id, username, email, display_name, phone FROM users WHERE id = ? AND active = 1',
+    'SELECT id, username, email, display_name, phone, role FROM users WHERE id = ? AND active = 1',
   ).get(id);
 }
 
+// Per-channel event filter. Email/SMS default to every event when unset;
+// push defaults to arrivals and blocked sign-ins, so a phone doesn't buzz on
+// every sign-out.
+const DEFAULT_EVENTS = { push: ['signed_in', 'signin_blocked'] };
+
 function wantsChannel(channel, event) {
-  const events = config.notifications?.[channel]?.events;
+  const events = config.notifications?.[channel]?.events ?? DEFAULT_EVENTS[channel];
   if (!Array.isArray(events) || !events.length) return true;
   return events.includes(event);
 }

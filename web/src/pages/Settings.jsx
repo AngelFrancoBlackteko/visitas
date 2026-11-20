@@ -68,6 +68,7 @@ export default function Settings() {
 
       <WallViewPrivacy />
 
+      <KioskBadgePrint />
       <KioskSignOutMode />
 
       <NotificationTester />
@@ -274,6 +275,49 @@ function PhotoRetention() {
   );
 }
 
+function KioskBadgePrint() {
+  const qc = useQueryClient();
+  const t = useT();
+  const { data, isLoading } = useQuery({
+    queryKey: ['settings-kiosk-badge'],
+    queryFn: () => api.get('/api/settings/kiosk-badge'),
+  });
+  const print = data?.print !== false;
+
+  const m = useMutation({
+    mutationFn: (next) => fetch('/api/settings/kiosk-badge', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ print: next }),
+    }).then(r => r.json()),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['settings-kiosk-badge'] });
+      qc.invalidateQueries({ queryKey: ['settings-kiosk-signout'] });
+    },
+  });
+
+  return (
+    <div className="panel">
+      <h2>{t('settings.badgePrint')}</h2>
+      <div className="muted" style={{ marginBottom: 8 }}>{t('settings.badgePrintHelp')}</div>
+      {[true, false].map(opt => (
+        <label key={String(opt)} className="theme-option" style={{ display: 'flex', alignItems: 'center', gap: 10, maxWidth: 460 }}>
+          <input
+            type="radio"
+            name="kiosk-badge-print"
+            value={opt ? 'print' : 'paperless'}
+            checked={print === opt}
+            disabled={isLoading || m.isPending}
+            onChange={() => m.mutate(opt)}
+          />
+          <span>{t(opt ? 'settings.badgePrint.on' : 'settings.badgePrint.off')}</span>
+        </label>
+      ))}
+    </div>
+  );
+}
+
 function KioskSignOutMode() {
   const qc = useQueryClient();
   const t = useT();
@@ -313,6 +357,9 @@ function KioskSignOutMode() {
           <span>{t(`settings.signout.${opt}`)}</span>
         </label>
       ))}
+      {m.data?.code === 'PRINT_BADGE_OFF' && (
+        <div className="error" style={{ marginTop: 8 }}>{t('settings.signoutNeedsPrint')}</div>
+      )}
     </div>
   );
 }

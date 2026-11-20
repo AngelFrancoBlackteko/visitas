@@ -6,7 +6,7 @@ import { db } from '../db/index.js';
 import QRCode from 'qrcode';
 import {
   createVisit, signOutVisit, getById, getByPublicToken,
-  listActive, listAll, sanitizeForWall, getSignoutCode, signOutByCode,
+  listActive, listAll, sanitizeForWall, getSignoutCode, signOutByCode, listForHost,
 } from '../services/visits.js';
 import { getSignoutMode } from '../services/settings.js';
 import { renderBadge } from '../services/badge.js';
@@ -177,6 +177,12 @@ router.post('/:id/sign-out', signOutLimiter, (req, res, next) => {
     // not the visitor's contact details.
     res.json({ visit: isAdminOrSecurity ? v : publicSignOutView(v) });
   } catch (e) { next(e); }
+});
+
+// Any signed-in user: the visits where they are the host. Hosts use this
+// as their whole view of the system.
+router.get('/mine', requireAuth, blockIfPasswordChangeRequired, (req, res) => {
+  res.json({ visits: listForHost(req.user.id) });
 });
 
 // Admin/security routes below.

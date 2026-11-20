@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
+import { disableAlertsQuietly } from './push/device.js';
 import { api } from './api.js';
 
 const AuthContext = createContext(null);
@@ -27,6 +28,8 @@ export function AuthProvider({ children }) {
   };
 
   const logout = async () => {
+    // Signing out stops this device's visitor alerts (shared phones/tablets).
+    await disableAlertsQuietly();
     await api.post('/api/auth/logout', {});
     setUser(null);
   };

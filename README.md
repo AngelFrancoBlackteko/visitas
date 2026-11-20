@@ -288,6 +288,42 @@ Secrets always come from env: `SMTP_PASSWORD`, `SMS_AUTH_TOKEN`. The `events[]` 
 
 Restart the container after editing `config/notifications.json` to apply (`docker compose restart visitas`). Once up, use Settings → Email / SMS to send a test message and verify delivery.
 
+## Roles
+
+- **host** — someone visitors come to see. Signs in to see only **My visitors** (who is waiting for them, who left today) and to turn on phone alerts. No access to anything else. `GET /api/visits/mine` returns their own visits without contact details.
+- **admin** — full admin UI; can also be a host.
+- **security** — Active visitors and Bans only; can force sign-outs; can't be a host.
+
+Admins create users under **Users** (new users default to *host*).
+
+## Browser alerts on the host's phone (Web Push)
+
+The simplest way to tell a host their visitor arrived, with no third-party
+account: the host opens visitas.world on their phone or computer, goes to
+**Active visitors** and taps **Get alerts here**. From then on, a visitor
+signing in for them makes that device ring, even with the page closed.
+Each host can have up to 10 devices; **Send a test alert** checks it works.
+Signing out of visitas.world on a device stops its alerts.
+
+Requirements:
+- **HTTPS.** Browsers only allow push on secure pages. Install with
+  `--domain` (see *HTTPS for the kiosk*). Plain `http://<LAN-IP>:3000` shows
+  a note instead of the button.
+- **Outbound internet** from the server to the browser push services
+  (Google FCM, Apple, Mozilla, Microsoft). The message is end-to-end
+  encrypted; those services can't read it.
+- **iPhone / iPad:** iOS 16.4 or later, and visitas.world must be added to
+  the Home Screen (Share → Add to Home Screen) and opened from that icon.
+- Android, Windows, macOS and Linux: current Chrome, Edge, Firefox or Safari.
+
+On by default; set `"push": { "enabled": false }` in
+`config/notifications.json` to turn it off. `events` defaults to
+`signed_in` (host) and `signin_blocked` (admin + security). The server
+creates its VAPID key pair on first use and keeps it in the database; set
+`VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY` (and optionally `VAPID_SUBJECT`, a
+`mailto:` or `https:` contact) to pin it. Deliveries show in the
+notifications log as kind `push`, recipient `user:<id>`.
+
 ## Multi-iPad / kiosk identity
 
 Every iPad parks on `/kiosk/<slug>` (e.g. `/kiosk/reception`, `/kiosk/loading-dock`). Bookmark the kiosk URL on the iPad's home screen — the bookmark is the kiosk's identity. A `default` kiosk is seeded on first migration so single-iPad workshops can just hit `/kiosk` and it'll redirect.
@@ -475,7 +511,7 @@ Restart visitas after editing the config. Per-deployment notes:
 
 ### What an AD login does
 
-On first AD login, visitas creates a `users` row with `source='ad'`, `role='admin'`, no `password_hash`. Subsequent logins refresh `email` and `display_name` from the AD attributes. AD users **become hosts**: once they've logged in, they appear in the kiosk's host typeahead (`/api/hosts`).
+On first AD login, visitas creates a `users` row with `source='ad'`, `role='host'`, no `password_hash`. Hosts can receive visitors and alerts but can't administer anything; promote someone to admin from **Users** (the role is never overwritten on later logins). Subsequent logins refresh `email` and `display_name` from the AD attributes. AD users **become hosts**: once they've logged in, they appear in the kiosk's host typeahead (`/api/hosts`).
 
 > **First-time visibility**: an AD user must log in once before they show up in the host typeahead. For workshops with a small admin team this is fine — each member signs in once on their first day. For larger orgs you can periodically run a sync script that walks the AD group; we don't ship one in v0 (open an issue if it's important).
 
@@ -511,7 +547,7 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 - `GET /` — **public** — returns the kiosk field schema, read live from `config/visitor-form.json` on each call. Edit the JSON to change what the kiosk asks. (Admin UI editing lands in a later release; until then the file is authoritative.)
 
 ### Hosts (kiosk typeahead) — `/api/hosts`
-- `GET /` — **public, sanitized** — `{ hosts: [{ id, displayName }] }`. Filtered to active `role=admin` users (security users are not hosts). Used by the kiosk's host typeahead.
+- `GET /` — **public, sanitized** — `{ hosts: [{ id, displayName }] }`. Filtered to active `role=admin` or `role=host` users (security users are not hosts). Used by the kiosk's host typeahead.
 
 ### Visitor bans — `/api/bans` (admin + security)
 - `GET /` — list all bans (or `?status=active|inactive` to filter).
@@ -535,6 +571,17 @@ On first AD login, visitas creates a `users` row with `source='ad'`, `role='admi
 ### Wall-view privacy — `/api/settings/wall-view`
 - `GET /` — `{ public }` (default true).
 - `PUT /` (admin) — `{ public: bool }`. When `false`, `GET /api/visits/active` requires admin or security auth.
+
+### Printed badge — `/api/settings/kiosk-badge`
+- `GET /` (public) — `{ print }` (default true). The kiosk reads it after each sign-in.
+- `PUT /` (admin) — `{ print: bool }`. `false` = paperless kiosk: no badge window opens and sign-out switches to the name list (there is no QR to scan). The host is still notified as usual.
+
+### Browser alerts — `/api/push` (any signed-in user, own devices only)
+- `GET /config` — `{ enabled, publicKey }` (VAPID public key).
+- `GET /subscriptions` — `{ devices: [{ id, userAgent, createdAt, lastSuccessAt }] }`.
+- `POST /subscriptions` — the browser's `PushSubscription.toJSON()`. Only endpoints at known push services are accepted (Google, Apple, Mozilla, Microsoft).
+- `POST /unsubscribe` — `{ endpoint }`.
+- `POST /test` — sends a test alert to the caller's devices → `{ sent, failed }`.
 
 ### Notifications log — `/api/notifications-log` (admin)
 - `GET /` — recent dispatch attempts. Optional `?status=pending|sent|failed`, `?event=signed_in`, `?limit=` (default 100, max 500). Each entry: `{ id, kind, event, recipient, subject, status, error, createdAt, sentAt }`.

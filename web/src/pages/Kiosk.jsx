@@ -36,6 +36,13 @@ export default function Kiosk() {
     queryKey: ['settings-photo'],
     queryFn: () => api.get('/api/settings/photo'),
   });
+  const badgeSettingQ = useQuery({
+    queryKey: ['settings-kiosk-badge'],
+    queryFn: () => api.get('/api/settings/kiosk-badge'),
+  });
+  // Paperless kiosk: only open the printable badge when printing is on.
+  // If the setting can't be read, keep the old behaviour and print.
+  const printBadge = badgeSettingQ.data?.print !== false;
   const inviteQ = useQuery({
     queryKey: ['invitation', inviteToken],
     queryFn: () => api.get(`/api/invitations/${inviteToken}`),
@@ -43,7 +50,7 @@ export default function Kiosk() {
     retry: false,
   });
 
-  if (kioskQ.isLoading || docsQ.isLoading || inviteQ.isLoading || photoSettingQ.isLoading) {
+  if (kioskQ.isLoading || docsQ.isLoading || inviteQ.isLoading || photoSettingQ.isLoading || badgeSettingQ.isLoading) {
     return <div className="kiosk-wrap"><div className="kiosk-card"><p className="muted">{t('common.loading')}</p></div></div>;
   }
   if (kioskQ.error) {
@@ -135,7 +142,9 @@ export default function Kiosk() {
       });
       setThankYouFor({ ...r.visit, _ndaCacheFresh: ndaCacheFresh });
       setStage('thanks');
-      window.open(`/api/visits/badge/${r.visit.publicToken}`, '_blank', 'noopener=yes,width=480,height=320');
+      if (printBadge) {
+        window.open(`/api/visits/badge/${r.visit.publicToken}`, '_blank', 'noopener=yes,width=480,height=320');
+      }
     } catch (e) {
       // Visitor-facing: never show raw server text (a ban refusal must stay
       // generic, and technical messages are in English).
@@ -177,7 +186,7 @@ export default function Kiosk() {
         <NdaSign doc={ndaDoc} visitorName={pending?.visitorName} onDone={onNdaDone} />
       )}
       {stage === 'thanks' && (
-        <ThankYou visit={thankYouFor} kiosk={kiosk} onReset={onReset} />
+        <ThankYou visit={thankYouFor} kiosk={kiosk} printBadge={printBadge} onReset={onReset} />
       )}
     </div>
   );
@@ -478,7 +487,7 @@ function NdaSign({ doc, visitorName, onDone }) {
   );
 }
 
-function ThankYou({ visit, kiosk, onReset }) {
+function ThankYou({ visit, kiosk, printBadge = true, onReset }) {
   const t = useT();
   const timer = useRef(null);
   useEffect(() => {
@@ -488,7 +497,7 @@ function ThankYou({ visit, kiosk, onReset }) {
 
   const hostName = visit?.host?.displayName || visit?.host?.username || t('kiosk.yourHost');
   const printerName = kiosk?.defaultPrinterName;
-  const badgeUrl = visit?.publicToken ? `/api/visits/badge/${visit.publicToken}` : null;
+  const badgeUrl = printBadge && visit?.publicToken ? `/api/visits/badge/${visit.publicToken}` : null;
   const ndaAcked = (visit?.acknowledgments ?? []).some(a => a.kind === 'nda');
   const ndaCached = visit?._ndaCacheFresh;
 
@@ -505,6 +514,9 @@ function ThankYou({ visit, kiosk, onReset }) {
           {' '}
           <a href={badgeUrl} target="_blank" rel="noopener noreferrer">{t('kiosk.reprint')}</a>.
         </p>
+      )}
+      {!printBadge && (
+        <p data-testid="paperless-signout-hint">{t('kiosk.paperlessSignOut')}</p>
       )}
       {ndaAcked && visit?.email && (
         <p className="muted" style={{ fontSize: 14 }}>

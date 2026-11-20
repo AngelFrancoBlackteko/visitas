@@ -11,6 +11,9 @@ const DEFAULTS = {
   // 'list':  legacy tap-your-name list; anyone at the kiosk can sign out
   //          anyone. Only for sites that don't print badges.
   'kiosk.signout_mode': 'badge',
+  // true: the kiosk opens the printable badge after each sign-in.
+  // false: paperless — no badge is printed; the host is still notified.
+  'kiosk.print_badge': true,
 };
 
 export const SIGNOUT_MODES = ['badge', 'list'];
@@ -18,6 +21,11 @@ export const SIGNOUT_MODES = ['badge', 'list'];
 export function getSignoutMode() {
   const v = getSetting('kiosk.signout_mode');
   return SIGNOUT_MODES.includes(v) ? v : 'badge';
+}
+
+/** Whether the kiosk prints a badge after sign-in (false = paperless). */
+export function getPrintBadge() {
+  return getSetting('kiosk.print_badge') !== false;
 }
 
 // Read the project version on every call. The file is small and the JSON

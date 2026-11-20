@@ -1,0 +1,9 @@
+{
+  "name": "visitas.world",
+  "short_name": "visitas",
+  "start_url": "/admin/active-visitors",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#5b9dff"
+}

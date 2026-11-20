@@ -10,7 +10,7 @@ const router = Router();
 // Admin-only — security users cannot manage other users.
 router.use(requireAuth, blockIfPasswordChangeRequired, requireRole('admin'));
 
-const ROLES = ['admin', 'security'];
+const ROLES = ['admin', 'security', 'host'];
 
 const createSchema = z.object({
   username: z.string().min(1).max(64).regex(/^[A-Za-z0-9._-]+$/, 'username must be alphanumeric (with . _ -)'),

@@ -17,6 +17,8 @@ export const messages = {
     'badge.close': 'Cerrar',
 
     // Host notifications (email + SMS)
+    'push.test.title': 'Aviso de prueba de visitas.world',
+    'push.test.body': 'Listo: este dispositivo recibirá un aviso cuando llegue su visita.',
     'notify.aVisitor': 'Un visitante',
     'notify.visitor': 'visitante',
     'notify.fromCompany': ' de {company}',
@@ -88,6 +90,8 @@ export const messages = {
     'badge.print': 'Print badge',
     'badge.close': 'Close',
 
+    'push.test.title': 'visitas.world test alert',
+    'push.test.body': 'All set: this device will get an alert when your visitor arrives.',
     'notify.aVisitor': 'A visitor',
     'notify.visitor': 'visitor',
     'notify.fromCompany': ' from {company}',

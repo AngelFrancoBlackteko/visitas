@@ -10,6 +10,7 @@ import Settings from './pages/Settings.jsx';
 import Kiosk from './pages/Kiosk.jsx';
 import KioskSignOut from './pages/KioskSignOut.jsx';
 import ActiveVisitors from './pages/ActiveVisitors.jsx';
+import MyVisits from './pages/MyVisits.jsx';
 import WallView from './pages/WallView.jsx';
 import Kiosks from './pages/Kiosks.jsx';
 import Documents from './pages/Documents.jsx';
@@ -38,7 +39,8 @@ export default function App() {
   }
 
   const isSecurity = user.role === 'security';
-  const home = isSecurity ? '/admin/active-visitors' : '/admin/users';
+  const home = user.role === 'host' ? '/admin/my-visits'
+    : isSecurity ? '/admin/active-visitors' : '/admin/users';
 
   return (
     <>
@@ -54,6 +56,7 @@ export default function App() {
           <Route path="/change-password" element={<ChangePassword forced={user.mustChangePassword} />} />
           <Route path="/" element={<Protected><Navigate to={home} replace /></Protected>} />
 
+          <Route path="/admin/my-visits" element={<Protected role="any"><MyVisits /></Protected>} />
           <Route path="/admin/active-visitors" element={<Protected role="any-staff"><ActiveVisitors /></Protected>} />
           <Route path="/admin/bans" element={<Protected role="any-staff"><Bans /></Protected>} />
 
@@ -74,6 +77,8 @@ export default function App() {
 function Protected({ children, role = 'any-staff' }) {
   const { user } = useAuth();
   if (user.mustChangePassword) return <Navigate to="/change-password" replace />;
+  // Hosts only have their own page; admin/security pages bounce them there.
+  if (user.role === 'host' && role !== 'any') return <Navigate to="/admin/my-visits" replace />;
   if (role === 'admin' && user.role !== 'admin') return <Navigate to="/admin/active-visitors" replace />;
   return children;
 }
@@ -96,10 +101,17 @@ function TopBar() {
           : <span className="brand-text">{appName}</span>}
       </div>
       <nav>
-        <NavLink to="/admin/active-visitors" className={({ isActive }) => isActive ? 'active' : ''}>
-          {t('nav.activeVisitors')}
-        </NavLink>
-        <NavLink to="/admin/bans" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.bans')}</NavLink>
+        {user.role !== 'security' && (
+          <NavLink to="/admin/my-visits" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.myVisits')}</NavLink>
+        )}
+        {user.role !== 'host' && (
+          <>
+            <NavLink to="/admin/active-visitors" className={({ isActive }) => isActive ? 'active' : ''}>
+              {t('nav.activeVisitors')}
+            </NavLink>
+            <NavLink to="/admin/bans" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.bans')}</NavLink>
+          </>
+        )}
         {isAdmin && (
           <>
             <NavLink to="/admin/visitors" className={({ isActive }) => isActive ? 'active' : ''}>{t('nav.visitors')}</NavLink>
