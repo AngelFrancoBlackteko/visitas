@@ -6,7 +6,7 @@ import { resolve, extname } from 'node:path';
 import { randomBytes } from 'node:crypto';
 import { config } from '../config.js';
 import { requireAuth, requireRole, blockIfPasswordChangeRequired } from '../middleware/auth.js';
-import { getBranding, setSetting, clearSetting, getSetting } from '../services/settings.js';
+import { getBranding, setSetting, clearSetting, getSetting, getSignoutMode, SIGNOUT_MODES } from '../services/settings.js';
 
 const router = Router();
 
@@ -40,8 +40,24 @@ router.get('/branding', (_req, res) => {
   res.json(getBranding());
 });
 
+// Kiosk sign-out mode is PUBLIC to read: the kiosk sign-out screen renders
+// before anyone logs in and needs to know whether to show the badge scanner
+// or the legacy name list.
+router.get('/kiosk-signout', (_req, res) => {
+  res.json({ mode: getSignoutMode() });
+});
+
 // Authed endpoints below.
 router.use(requireAuth, blockIfPasswordChangeRequired);
+
+const signoutModeSchema = z.object({ mode: z.enum(SIGNOUT_MODES) }).strict();
+
+router.put('/kiosk-signout', requireRole('admin'), (req, res) => {
+  const parse = signoutModeSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: 'invalid request', details: parse.error.flatten() });
+  setSetting('kiosk.signout_mode', parse.data.mode);
+  res.json({ mode: parse.data.mode });
+});
 
 const brandingSchema = z.object({
   appName: z.string().min(1).max(64).optional(),

@@ -4,6 +4,32 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.9.0] — 2026-11-20
+
+Kiosk self sign-out by badge QR, so nobody can sign out someone else.
+
+### Security
+- **Badge QR sign-out (new default).** Every visit gets a random 128-bit
+  `signout_code` (migration `011_signout_code.sql`), kept separate from
+  `public_token` so a badge that leaves the building can't open the
+  visitor's photo. The printed badge carries a QR for
+  `<BASE_URL>/kiosk/signout/<code>`.
+- At `/kiosk/signout` the visitor scans the badge. A USB/Bluetooth
+  scanner types the URL into the field and presses Enter. A phone camera
+  opens `/kiosk/signout/<code>`, which asks for one tap; it never signs
+  out just because the page loaded.
+- **Anonymous `POST /api/visits/:id/sign-out` is refused** (403
+  `BADGE_SIGNOUT_REQUIRED`), because ids are sequential. Admin and
+  security can still force a sign-out with a session.
+- Public sign-out responses now return only `{id, visitorName,
+  signedOutAt}`, not the visitor's contact details.
+
+### Added
+- **Settings → Kiosk sign-out:** *Badge QR* (default) or the legacy
+  *Name list*, for sites that don't print badges. The mode is readable
+  without auth at `GET /api/settings/kiosk-signout` (the kiosk needs it
+  before login) and writable by admins.
+
 ## [1.8.0] — 2026-11-20
 
 Security hardening of the public kiosk surface, the session secret, and

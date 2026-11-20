@@ -6,7 +6,18 @@ import { config } from '../config.js';
 const DEFAULTS = {
   'branding.app_name': 'visitas.world',
   'branding.logo_path': null,
+  // 'badge': visitors sign out by scanning the QR on their badge (default).
+  // 'list':  legacy tap-your-name list; anyone at the kiosk can sign out
+  //          anyone. Only for sites that don't print badges.
+  'kiosk.signout_mode': 'badge',
 };
+
+export const SIGNOUT_MODES = ['badge', 'list'];
+
+export function getSignoutMode() {
+  const v = getSetting('kiosk.signout_mode');
+  return SIGNOUT_MODES.includes(v) ? v : 'badge';
+}
 
 // Read the project version on every call. The file is small and the JSON
 // parse is cheap; doing it live means a `package.json` bump shows up in the

@@ -27,6 +27,7 @@ export default function App() {
         <Route path="/kiosk/:slug" element={<Kiosk />} />
         <Route path="/kiosk" element={<Navigate to="/kiosk/default" replace />} />
         <Route path="/kiosk/signout" element={<KioskSignOut />} />
+        <Route path="/kiosk/signout/:code" element={<KioskSignOut />} />
         <Route path="/active" element={<WallView />} />
         <Route path="/login" element={<Login />} />
         <Route path="*" element={<Navigate to="/login" replace />} />
@@ -45,6 +46,7 @@ export default function App() {
           <Route path="/kiosk/:slug" element={<Kiosk />} />
           <Route path="/kiosk" element={<Navigate to="/kiosk/default" replace />} />
           <Route path="/kiosk/signout" element={<KioskSignOut />} />
+          <Route path="/kiosk/signout/:code" element={<KioskSignOut />} />
           <Route path="/active" element={<WallView />} />
           <Route path="/login" element={<Navigate to={home} replace />} />
           <Route path="/change-password" element={<ChangePassword forced={user.mustChangePassword} />} />

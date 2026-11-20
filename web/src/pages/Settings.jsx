@@ -66,6 +66,8 @@ export default function Settings() {
 
       <WallViewPrivacy />
 
+      <KioskSignOutMode />
+
       <NotificationTester />
 
       <NotificationsLogPanel />
@@ -222,6 +224,50 @@ function PhotoRetention() {
         <span className="muted">currently {current} days</span>
       </div>
       {m.error && <div className="error" style={{ marginTop: 8 }}>{m.error.error || 'failed'}</div>}
+    </div>
+  );
+}
+
+function KioskSignOutMode() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({
+    queryKey: ['settings-kiosk-signout'],
+    queryFn: () => api.get('/api/settings/kiosk-signout'),
+  });
+  const mode = data?.mode ?? 'badge';
+
+  const m = useMutation({
+    mutationFn: (next) => fetch('/api/settings/kiosk-signout', {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ mode: next }),
+    }).then(r => r.json()),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['settings-kiosk-signout'] }),
+  });
+
+  return (
+    <div className="panel">
+      <h2>Kiosk sign-out</h2>
+      <div className="muted" style={{ marginBottom: 8 }}>
+        How visitors sign themselves out at the kiosk. <strong>Badge QR</strong> (recommended) prints a QR code on each badge;
+        the visitor scans it at the kiosk or with their phone, so nobody can sign out someone else. <strong>Name list</strong> is the
+        old behaviour: anyone at the kiosk can tap any name. Use it only if you don&rsquo;t print badges. Admin and security can always
+        force a sign-out from Active visitors.
+      </div>
+      {['badge', 'list'].map(opt => (
+        <label key={opt} className="theme-option" style={{ display: 'flex', alignItems: 'center', gap: 10, maxWidth: 460 }}>
+          <input
+            type="radio"
+            name="kiosk-signout-mode"
+            value={opt}
+            checked={mode === opt}
+            disabled={isLoading || m.isPending}
+            onChange={() => m.mutate(opt)}
+          />
+          <span>{opt === 'badge' ? 'Badge QR — visitor scans their own badge' : 'Name list — anyone can tap any name'}</span>
+        </label>
+      ))}
     </div>
   );
 }

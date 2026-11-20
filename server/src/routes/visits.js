@@ -3,10 +3,12 @@ import { z } from 'zod';
 import { requireAuth, requireRole, blockIfPasswordChangeRequired } from '../middleware/auth.js';
 import { COOKIE_NAME, verifyToken } from '../auth/jwt.js';
 import { db } from '../db/index.js';
+import QRCode from 'qrcode';
 import {
   createVisit, signOutVisit, getById, getByPublicToken,
-  listActive, listAll, sanitizeForWall,
+  listActive, listAll, sanitizeForWall, getSignoutCode, signOutByCode,
 } from '../services/visits.js';
+import { getSignoutMode } from '../services/settings.js';
 import { renderBadge } from '../services/badge.js';
 import { photoFileFor } from '../services/photo.js';
 import { getSetting } from '../services/settings.js';
@@ -103,14 +105,22 @@ router.get('/active', (req, res) => {
 
 // Token-keyed badge — public, but the random 64-hex token in the URL is
 // unguessable, so this can't be enumerated by walking visit ids.
-router.get('/badge/:token', (req, res) => {
-  const v = getByPublicToken(req.params.token);
-  if (!v) return res.status(404).type('text/plain').send('visit not found');
-  res.set('Cache-Control', 'private, no-store');
-  // The badge is a standalone print page with an inline print script and
-  // inline styles; all user data in it is HTML-escaped by renderBadge.
-  res.set('Content-Security-Policy', BADGE_CSP);
-  res.type('text/html').send(renderBadge(v));
+router.get('/badge/:token', async (req, res, next) => {
+  try {
+    const v = getByPublicToken(req.params.token);
+    if (!v) return res.status(404).type('text/plain').send('visit not found');
+    // QR with the sign-out URL: scanned by the kiosk (USB/Bluetooth scanner
+    // types it into the sign-out field) or by the visitor's phone camera.
+    const code = getSignoutCode(v.id);
+    const signoutQrSvg = code
+      ? await QRCode.toString(signoutUrl(req, code), { type: 'svg', margin: 0, errorCorrectionLevel: 'M' })
+      : null;
+    res.set('Cache-Control', 'private, no-store');
+    // The badge is a standalone print page with an inline print script and
+    // inline styles; all user data in it is HTML-escaped by renderBadge.
+    res.set('Content-Security-Policy', BADGE_CSP);
+    res.type('text/html').send(renderBadge(v, { signoutQrSvg, signoutCode: code }));
+  } catch (e) { next(e); }
 });
 
 // Token-keyed photo — same deal. 404 once the retention sweep purges it.
@@ -127,6 +137,25 @@ router.get('/photo/:token', (req, res) => {
 // admin/security when called with a valid session cookie (force sign-out).
 // Rate-limited on the public path; admin/security with auth bypasses the
 // limiter because their sign-outs are deliberate and audited.
+// Visitor self sign-out with the code from their badge QR. Public and
+// rate-limited; the code is 128 random bits, so it can't be guessed.
+const badgeSignOutSchema = z.object({
+  code: z.string().regex(/^[0-9a-f]{32}$/, 'invalid badge code'),
+}).strict();
+
+router.post('/sign-out/badge', signOutLimiter, (req, res, next) => {
+  const parse = badgeSignOutSchema.safeParse(req.body);
+  if (!parse.success) return res.status(400).json({ error: 'invalid badge code' });
+  try {
+    const v = signOutByCode(parse.data.code);
+    res.json({ visit: publicSignOutView(v) });
+  } catch (e) { next(e); }
+});
+
+// Sign-out by visit id. Admin/security with a session cookie can always
+// force a sign-out. Without a session it is only allowed when the site has
+// opted into the legacy 'list' kiosk mode: ids are sequential, so in the
+// default 'badge' mode an anonymous caller could otherwise sign out anyone.
 router.post('/:id/sign-out', signOutLimiter, (req, res, next) => {
   const id = Number(req.params.id);
   const callerId = tryIdentifyUser(req);
@@ -134,13 +163,19 @@ router.post('/:id/sign-out', signOutLimiter, (req, res, next) => {
     ? db.prepare("SELECT 1 AS ok FROM users WHERE id = ? AND role IN ('admin','security') AND active = 1").get(callerId)?.ok
     : null;
 
+  if (!isAdminOrSecurity && getSignoutMode() !== 'list') {
+    return res.status(403).json({ error: 'sign out by scanning the QR code on your badge, or ask reception', code: 'BADGE_SIGNOUT_REQUIRED' });
+  }
+
   try {
     const v = signOutVisit({
       visitId: id,
       byUserId: isAdminOrSecurity ? callerId : null,
       method: isAdminOrSecurity ? 'admin' : 'kiosk',
     });
-    res.json({ visit: v });
+    // Anonymous callers get the minimum the kiosk shows ("Goodbye, Ana"),
+    // not the visitor's contact details.
+    res.json({ visit: isAdminOrSecurity ? v : publicSignOutView(v) });
   } catch (e) { next(e); }
 });
 
@@ -158,6 +193,17 @@ router.get('/:id', (req, res) => {
   if (!v) return res.status(404).json({ error: 'visit not found' });
   res.json({ visit: v });
 });
+
+function publicSignOutView(v) {
+  return { id: v.id, visitorName: v.visitorName, signedOutAt: v.signedOutAt ?? null };
+}
+
+function signoutUrl(req, code) {
+  // Prefer the configured public URL; fall back to the host the badge was
+  // requested on (the kiosk's own view of the server).
+  const base = process.env.BASE_URL || `${req.protocol}://${req.get('host')}`;
+  return `${base.replace(/\/+$/, '')}/kiosk/signout/${code}`;
+}
 
 function tryIdentifyUser(req) {
   const token = req.cookies?.[COOKIE_NAME];
