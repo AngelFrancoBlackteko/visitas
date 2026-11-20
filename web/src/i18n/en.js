@@ -407,4 +407,22 @@ export default {
   'visitors.minsAgo': '{n} min ago',
   'visitors.hoursAgo': '{n}h ago',
   'visitors.daysAgo': '{n}d ago',
+
+  // Device alerts (browser notifications)
+  'push.title': 'Alerts on this device',
+  'push.offHelp': 'Turn on alerts so this phone or computer rings when your visitor arrives, even with the page closed.',
+  'push.turnOn': 'Get alerts here',
+  'push.onHelp': 'This device gets an alert when your visitor arrives.',
+  'push.sendTest': 'Send a test alert',
+  'push.turnOff': 'Stop alerts on this device',
+  'push.enabled': 'All set. We’ll alert you on this device when your visitor arrives.',
+  'push.disabled': 'This device will no longer get alerts.',
+  'push.testSent': 'Test alert sent. It should show up in a few seconds.',
+  'push.testFailed': 'The test alert could not be sent. Try turning alerts off and on again.',
+  'push.enableFailed': 'Alerts could not be turned on. Please try again.',
+  'push.serverDisabled': 'Browser alerts are turned off on this server.',
+  'push.denied': 'This browser is blocking notifications from this site. Allow them in the browser settings and reload the page.',
+  'push.why.needsHttps': 'Alerts only work when visitas.world is opened over https:// (with a domain). Ask your admin for the secure address.',
+  'push.why.iosAddToHome': 'On iPhone or iPad: tap Share, then "Add to Home Screen", open visitas.world from that icon and turn alerts on there (needs iOS 16.4 or later).',
+  'push.why.unsupported': 'This browser doesn’t support alerts. Use an up-to-date Chrome, Edge, Firefox or Safari.',
 };

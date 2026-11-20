@@ -23,5 +23,12 @@
     },
     "events": ["signed_in"],
     "$comment": "Twilio adapter uses a direct REST call — no SDK required. Add a new adapter and dispatch on cfg.adapter to plug another provider. The 'log' adapter just logs without sending."
+  },
+
+  "push": {
+    "enabled": true,
+    "events": ["signed_in", "signin_blocked"],
+    "$comment": "Browser alerts (Web Push) on the devices where a host tapped 'Get alerts here' on Active visitors. No account or API key needed; requires HTTPS (install with --domain) and outbound internet to the browsers' push services. signin_blocked goes to admin + security devices. Set enabled=false to hide it."
   }
+
 }

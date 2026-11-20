@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { api } from '../api.js';
 import BanModal from '../components/BanModal.jsx';
+import PushAlerts from '../components/PushAlerts.jsx';
 import { useI18n, durationSince } from '../i18n/index.jsx';
 
 export default function ActiveVisitors() {
@@ -31,6 +32,8 @@ export default function ActiveVisitors() {
       <p className="muted">
         {t('active.intro')}
       </p>
+
+      <PushAlerts />
 
       {isLoading && <div className="panel"><p className="muted">{t('common.loading')}</p></div>}
 

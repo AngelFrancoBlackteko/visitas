@@ -136,6 +136,27 @@ test('es: paperless kiosk prints nothing and the visitor signs out by name', asy
   }
 });
 
+test('es: host sees the device-alerts panel and the service worker is served', async () => {
+  const page = await adminCtx.newPage();
+  try {
+    await page.goto('/admin/active-visitors');
+    const panel = page.getByTestId('push-alerts');
+    await expect(panel.getByRole('heading', { name: 'Avisos en este dispositivo' })).toBeVisible();
+    // localhost is a secure context, so Chromium offers the opt-in button.
+    await expect(panel.getByRole('button', { name: 'Recibir avisos aquí' })).toBeVisible();
+
+    const sw = await page.request.get('/sw.js');
+    expect(sw.ok()).toBe(true);
+    expect(sw.headers()['content-type']).toMatch(/javascript/);
+    expect(await sw.text()).toContain("addEventListener('push'");
+    const manifest = await page.request.get('/manifest.webmanifest');
+    expect(manifest.ok()).toBe(true);
+    expect((await manifest.json()).display).toBe('standalone');
+  } finally {
+    await page.close();
+  }
+});
+
 test('es: login screen is in Spanish', async ({ page }) => {
   await page.goto('/login');
   await expect(page.getByRole('heading', { name: 'Iniciar sesión' })).toBeVisible();

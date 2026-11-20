@@ -408,4 +408,22 @@ export default {
   'visitors.minsAgo': 'hace {n} min',
   'visitors.hoursAgo': 'hace {n} h',
   'visitors.daysAgo': 'hace {n} d',
+
+  // Avisos en el dispositivo (notificaciones del navegador)
+  'push.title': 'Avisos en este dispositivo',
+  'push.offHelp': 'Active los avisos para que este celular o computadora suene cuando llegue su visita, aunque la página esté cerrada.',
+  'push.turnOn': 'Recibir avisos aquí',
+  'push.onHelp': 'Este dispositivo recibe un aviso cuando llega su visita.',
+  'push.sendTest': 'Enviar aviso de prueba',
+  'push.turnOff': 'Dejar de recibir avisos aquí',
+  'push.enabled': 'Listo. Le avisaremos en este dispositivo cuando llegue su visita.',
+  'push.disabled': 'Este dispositivo ya no recibirá avisos.',
+  'push.testSent': 'Aviso de prueba enviado. Debe aparecer en unos segundos.',
+  'push.testFailed': 'No se pudo enviar el aviso de prueba. Intente desactivar y activar de nuevo.',
+  'push.enableFailed': 'No se pudieron activar los avisos. Intente de nuevo.',
+  'push.serverDisabled': 'Los avisos del navegador están desactivados en este servidor.',
+  'push.denied': 'Este navegador tiene bloqueadas las notificaciones de este sitio. Actívelas en los ajustes del navegador y recargue la página.',
+  'push.why.needsHttps': 'Los avisos solo funcionan cuando visitas.world se abre con https:// (con dominio). Pida a su administrador la dirección segura.',
+  'push.why.iosAddToHome': 'En iPhone o iPad: toque Compartir y luego "Agregar a pantalla de inicio", abra visitas.world desde ese ícono y active los avisos ahí (requiere iOS 16.4 o más reciente).',
+  'push.why.unsupported': 'Este navegador no admite avisos. Use Chrome, Edge, Firefox o Safari actualizados.',
 };

@@ -4,6 +4,35 @@ All notable changes to visitas.world are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/) and the project
 uses semantic versioning.
 
+## [1.12.0] — 2026-11-20
+
+Browser alerts: the host's phone rings when their visitor arrives.
+
+### Added
+- **Web Push alerts** for hosts. Active visitors → *Alerts on this device*
+  → *Get alerts here*. A visitor signing in pings every device the host
+  turned on, even with the page closed; blocked sign-ins ping admin and
+  security devices. No third-party account or API key: standard Web Push
+  with a VAPID key pair the server generates on first use (or
+  `VAPID_PUBLIC_KEY` / `VAPID_PRIVATE_KEY`). Needs HTTPS; on iPhone, iOS
+  16.4+ and the app added to the Home Screen.
+- `/api/push` routes (config, subscribe, unsubscribe, test) for the
+  signed-in user's own devices. Up to 10 devices per user.
+- Service worker (`/sw.js`) and web app manifest so iPhone can install the
+  app and receive alerts.
+- Migration `012_push_subscriptions.sql`; `notifications_log.kind` accepts
+  `push`. Dependency: `web-push` 3.6.7.
+- `config/notifications.json` gains `push` (`enabled`, `events`).
+
+### Security
+- Subscription endpoints must be HTTPS URLs at a known push service, so a
+  signed-in user can't make the server call arbitrary hosts.
+- Endpoints (bearer secrets) are never returned by the API nor written to
+  the notifications log; the log records `user:<id>`.
+- Signing out removes the device's subscription, so a shared tablet stops
+  getting the previous user's alerts. Devices the push service reports as
+  gone (404/410) are deleted.
+
 ## [1.11.0] — 2026-11-20
 
 Paperless kiosk: sign in without printing a badge.
